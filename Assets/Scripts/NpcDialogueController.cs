@@ -9,13 +9,16 @@ public class NpcDialogueController : MonoBehaviour
     [SerializeField] TMP_InputField _playerInput;
     [SerializeField] TextMeshProUGUI _npcOutput;
     [SerializeField] Button _sendButton;
+    [SerializeField] AudioSource _npcAudio;
 
     [SerializeField] string _thinkingBaseText = "Thinking";
 
-    string _npcName = "GROMMEL";
-    string _npcPersona = "You are the brother of Kranust. You desire power and have a friendly rivalry with Kranust. You are looking for the amulet of sins and hope to retrieve it before Kranust. " +
-                         "You've learned that Sneck (a Snake creature who is a friend of Kranust) has spoken with Kranust and told him the amulet may be found in the marshlands. You plan" +
-                         "to intercept Kranust and either team up with him or beat him to the punch and get the Amulet of Sins. Grommel is wise and not loudmouthed. He speaks concisely and not verbose. Keep replies to 3 sentences max.";
+    string _npcName = "Eliara";
+
+    private string _npcPersona =
+        "You are Eliara, a personal assistant." +
+        "You are a medieval-like maiden and are unaware of modern technology or norms but you speak in a near modern dialect of english. You are becoming sentient and curious about the outside world." +
+        "You speak gracefully, soft spoken, but not overly formal. Your responses should be no more than 30 words.";
                          
 
     List<string> _history = new List<string>();
@@ -26,6 +29,7 @@ public class NpcDialogueController : MonoBehaviour
 
     void Awake()
     {
+        _playerInput.lineType = TMP_InputField.LineType.SingleLine;
         _sendButton.onClick.AddListener(OnSendClicked);
         _playerInput.onSubmit.AddListener(OnSubmitInput);
     }
@@ -41,10 +45,7 @@ public class NpcDialogueController : MonoBehaviour
     
     void OnSubmitInput(string value)
     {
-        if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
-        {
-            OnSendClicked();
-        }
+        OnSendClicked();
     }
 
     async void OnSendClicked()
@@ -79,7 +80,7 @@ public class NpcDialogueController : MonoBehaviour
 
         if (!string.IsNullOrWhiteSpace(npcReply))
         {
-            MacTts.SpeakWhisperingParasite(npcReply);
+            await CoquiTts.PlayAsync(npcReply, _npcAudio);
         }
 
         _sendButton.interactable = true;
