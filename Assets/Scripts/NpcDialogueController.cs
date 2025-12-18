@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using System.Collections.Concurrent;
 
 public class NpcDialogueController : MonoBehaviour
 {
@@ -22,10 +23,12 @@ public class NpcDialogueController : MonoBehaviour
                          
 
     List<string> _history = new List<string>();
+    readonly ConcurrentQueue<string> _npcTextQueue = new ConcurrentQueue<string>();
 
     bool _isBusy;
     bool _isThinking;
     Coroutine _thinkingCoroutine;
+    bool _pendingFirstTokenStop;
 
     void Awake()
     {
@@ -48,6 +51,20 @@ public class NpcDialogueController : MonoBehaviour
         OnSendClicked();
     }
 
+    void Update()
+    {
+        if (_pendingFirstTokenStop)
+        {
+            _pendingFirstTokenStop = false;
+            StopThinkingAnimation();
+        }
+
+        while (_npcTextQueue.TryDequeue(out var text))
+        {
+            _npcOutput.text = text;
+        }
+    }
+
     async void OnSendClicked()
     {
         if (_isBusy)
@@ -66,11 +83,15 @@ public class NpcDialogueController : MonoBehaviour
 
         _npcOutput.text = string.Empty;
         StartThinkingAnimation();
+        _pendingFirstTokenStop = false;
 
         string historyText = string.Join("\n", _history);
-        string npcReply = await NpcDialogueService.GetNpcReply(_npcName, _npcPersona, historyText, playerLine);
-
-        StopThinkingAnimation();
+        string npcReply = await NpcDialogueService.GetNpcReplyStreamed(
+            _npcName,
+            _npcPersona,
+            historyText,
+            playerLine,
+            OnNpcTextDelta);
 
         _history.Add("Player: " + playerLine);
         _history.Add(_npcName + ": " + npcReply);
@@ -78,13 +99,19 @@ public class NpcDialogueController : MonoBehaviour
         _npcOutput.text = npcReply;
         _playerInput.text = string.Empty;
 
-        if (!string.IsNullOrWhiteSpace(npcReply))
-        {
-            await CoquiTts.PlayAsync(npcReply, _npcAudio);
-        }
+        // TTS temporarily disabled while focusing on streaming UI responsiveness.
 
         _sendButton.interactable = true;
         _isBusy = false;
+    }
+
+    void OnNpcTextDelta(string text)
+    {
+        if (!_pendingFirstTokenStop)
+        {
+            _pendingFirstTokenStop = true; // will stop on main thread
+        }
+        _npcTextQueue.Enqueue(text);
     }
 
     void StartThinkingAnimation()
