@@ -14,11 +14,11 @@ public static class CoquiTts
     const string ModelName = "tts_models/en/vctk/vits";
     const string SpeakerIdx = "p364";
 
-    public static async Task PlayAsync(string text, AudioSource output)
+    public static async Task<AudioClip> GenerateClipAsync(string text)
     {
-        if (string.IsNullOrWhiteSpace(text) || output == null)
+        if (string.IsNullOrWhiteSpace(text))
         {
-            return;
+            return null;
         }
 
         string tempWavPath = Path.Combine(Application.temporaryCachePath, "npc_coqui.wav");
@@ -51,14 +51,14 @@ public static class CoquiTts
                 if (process.ExitCode != 0)
                 {
                     UnityEngine.Debug.LogError($"Coqui TTS exited with code {process.ExitCode}. Stdout: {stdout} Stderr: {stderr}");
-                    return;
+                    return null;
                 }
             }
 
             if (!File.Exists(tempWavPath))
             {
                 UnityEngine.Debug.LogError("Coqui TTS did not produce an audio file.");
-                return;
+                return null;
             }
 
             using (var request = UnityWebRequestMultimedia.GetAudioClip("file://" + tempWavPath, AudioType.WAV))
@@ -68,12 +68,11 @@ public static class CoquiTts
                 if (request.result != UnityWebRequest.Result.Success)
                 {
                     UnityEngine.Debug.LogError("Failed to load Coqui audio: " + request.error);
-                    return;
+                    return null;
                 }
 
                 var clip = DownloadHandlerAudioClip.GetContent(request);
-                output.clip = clip;
-                output.Play();
+                return clip;
             }
         }
         finally
@@ -88,5 +87,7 @@ public static class CoquiTts
             catch (IOException) { }
             catch (UnauthorizedAccessException) { }
         }
+
+        return null;
     }
 }

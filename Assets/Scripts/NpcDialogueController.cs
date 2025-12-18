@@ -1,9 +1,9 @@
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using System.Collections.Concurrent;
 
 public class NpcDialogueController : MonoBehaviour
 {
@@ -20,10 +20,13 @@ public class NpcDialogueController : MonoBehaviour
         "You are Eliara, a personal assistant." +
         "You are a medieval-like maiden and are unaware of modern technology or norms but you speak in modern tongue. You are becoming sentient and curious about the outside world." +
         "You speak gracefully, soft spoken, but not overly formal. Your responses should be no more than 30 words.";
-                         
 
     List<string> _history = new List<string>();
     readonly ConcurrentQueue<string> _npcTextQueue = new ConcurrentQueue<string>();
+
+    int _lastNpcTextLength;
+    AudioClip _pendingClip;
+    bool _pendingPlayClip;
 
     bool _isBusy;
     bool _isThinking;
@@ -45,7 +48,7 @@ public class NpcDialogueController : MonoBehaviour
             _thinkingCoroutine = null;
         }
     }
-    
+
     void OnSubmitInput(string value)
     {
         OnSendClicked();
@@ -62,6 +65,12 @@ public class NpcDialogueController : MonoBehaviour
         while (_npcTextQueue.TryDequeue(out var text))
         {
             _npcOutput.text = text;
+        }
+
+        if (_pendingPlayClip)
+        {
+            _pendingPlayClip = false;
+            PlayPendingClip();
         }
     }
 
@@ -84,6 +93,8 @@ public class NpcDialogueController : MonoBehaviour
         _npcOutput.text = string.Empty;
         StartThinkingAnimation();
         _pendingFirstTokenStop = false;
+        _lastNpcTextLength = 0;
+        ClearQueues();
 
         string historyText = string.Join("\n", _history);
         string npcReply = await NpcDialogueService.GetNpcReplyStreamed(
@@ -99,7 +110,10 @@ public class NpcDialogueController : MonoBehaviour
         _npcOutput.text = npcReply;
         _playerInput.text = string.Empty;
 
-        // TTS temporarily disabled while focusing on streaming UI responsiveness.
+        if (!string.IsNullOrWhiteSpace(npcReply))
+        {
+            _ = GenerateClipAsync(npcReply);
+        }
 
         _sendButton.interactable = true;
         _isBusy = false;
@@ -111,7 +125,34 @@ public class NpcDialogueController : MonoBehaviour
         {
             _pendingFirstTokenStop = true; // will stop on main thread
         }
+
+        // Track the delta length even though we're no longer splitting sentences.
+        _lastNpcTextLength = text.Length;
         _npcTextQueue.Enqueue(text);
+    }
+
+    async Task GenerateClipAsync(string text)
+    {
+        var clip = await CoquiTts.GenerateClipAsync(text);
+        _pendingClip = clip;
+        _pendingPlayClip = clip != null;
+    }
+
+    void ClearQueues()
+    {
+        while (_npcTextQueue.TryDequeue(out _)) { }
+    }
+
+    void PlayPendingClip()
+    {
+        if (_pendingClip == null || _npcAudio == null)
+        {
+            return;
+        }
+
+        _npcAudio.clip = _pendingClip;
+        _npcAudio.Play();
+        _pendingClip = null;
     }
 
     void StartThinkingAnimation()
