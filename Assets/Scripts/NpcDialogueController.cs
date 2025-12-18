@@ -17,7 +17,7 @@ public class NpcDialogueController : MonoBehaviour
 
     private string _npcPersona =
         "You are Eliara, a personal assistant." +
-        "You are a medieval-like maiden and are unaware of modern technology or norms but you speak in a near modern dialect of english. You are becoming sentient and curious about the outside world." +
+        "You are a medieval-like maiden and are unaware of modern technology or norms but you speak in modern tongue. You are becoming sentient and curious about the outside world." +
         "You speak gracefully, soft spoken, but not overly formal. Your responses should be no more than 30 words.";
                          
 
@@ -29,7 +29,7 @@ public class NpcDialogueController : MonoBehaviour
 
     void Awake()
     {
-        _playerInput.lineType = TMP_InputField.LineType.SingleLine;
+        _playerInput.lineType = TMP_InputField.LineType.MultiLineSubmit; // wrap text, Enter submits
         _sendButton.onClick.AddListener(OnSendClicked);
         _playerInput.onSubmit.AddListener(OnSubmitInput);
     }
