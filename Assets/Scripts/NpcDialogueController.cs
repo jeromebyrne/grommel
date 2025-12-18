@@ -11,6 +11,7 @@ public class NpcDialogueController : MonoBehaviour
     [SerializeField] TextMeshProUGUI _npcOutput;
     [SerializeField] Button _sendButton;
     [SerializeField] AudioSource _npcAudio;
+    [SerializeField] float _charsPerSecond = 40f;
 
     [SerializeField] string _thinkingBaseText = "Thinking";
 
@@ -27,6 +28,9 @@ public class NpcDialogueController : MonoBehaviour
     int _lastNpcTextLength;
     AudioClip _pendingClip;
     bool _pendingPlayClip;
+    string _currentTargetText = string.Empty;
+    int _visibleCharCount;
+    float _revealTimer;
 
     bool _isBusy;
     bool _isThinking;
@@ -64,7 +68,23 @@ public class NpcDialogueController : MonoBehaviour
 
         while (_npcTextQueue.TryDequeue(out var text))
         {
-            _npcOutput.text = text;
+            _currentTargetText = text;
+            if (_visibleCharCount > _currentTargetText.Length)
+            {
+                _visibleCharCount = _currentTargetText.Length;
+            }
+        }
+
+        if (!string.IsNullOrEmpty(_currentTargetText))
+        {
+            _revealTimer += Time.deltaTime;
+            int charsToShow = Mathf.FloorToInt(_revealTimer * _charsPerSecond);
+            if (charsToShow > 0)
+            {
+                _revealTimer -= charsToShow / _charsPerSecond;
+                _visibleCharCount = Mathf.Min(_visibleCharCount + charsToShow, _currentTargetText.Length);
+                _npcOutput.text = _currentTargetText.Substring(0, _visibleCharCount);
+            }
         }
 
         if (_pendingPlayClip)
@@ -95,6 +115,9 @@ public class NpcDialogueController : MonoBehaviour
         _pendingFirstTokenStop = false;
         _lastNpcTextLength = 0;
         ClearQueues();
+        _currentTargetText = string.Empty;
+        _visibleCharCount = 0;
+        _revealTimer = 0f;
 
         string historyText = string.Join("\n", _history);
         string npcReply = await NpcDialogueService.GetNpcReplyStreamed(
@@ -107,7 +130,7 @@ public class NpcDialogueController : MonoBehaviour
         _history.Add("Player: " + playerLine);
         _history.Add(_npcName + ": " + npcReply);
 
-        _npcOutput.text = npcReply;
+        _currentTargetText = npcReply;
         _playerInput.text = string.Empty;
 
         if (!string.IsNullOrWhiteSpace(npcReply))

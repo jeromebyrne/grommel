@@ -24,43 +24,62 @@ public static class CoquiTts
         string tempWavPath = Path.Combine(Application.temporaryCachePath, "npc_coqui.wav");
         string escapedText = text.Replace("\"", "\\\"");
 
-        var startInfo = new ProcessStartInfo
+        // Run the heavy CLI work off the Unity thread.
+        bool ok = await Task.Run(() =>
         {
-            FileName = TtsExecutable,
-            Arguments = $"--model_name \"{ModelName}\" --speaker_idx {SpeakerIdx} --text \"{escapedText}\" --out_path \"{tempWavPath}\"",
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true
-        };
-
-        // Ensure Coqui finds espeak-ng when Unity doesn't inherit shell env.
-        startInfo.EnvironmentVariables["TTS_ESPEAK_LIBRARY"] = "/opt/homebrew/opt/espeak-ng/lib/libespeak-ng.dylib";
-        startInfo.EnvironmentVariables["PATH"] = "/opt/homebrew/bin:" + startInfo.EnvironmentVariables["PATH"];
-
-        string stdout = string.Empty;
-        string stderr = string.Empty;
-
-        try
-        {
-            using (var process = Process.Start(startInfo))
+            var startInfo = new ProcessStartInfo
             {
-                stdout = process.StandardOutput.ReadToEnd();
-                stderr = process.StandardError.ReadToEnd();
-                process.WaitForExit();
-                if (process.ExitCode != 0)
+                FileName = TtsExecutable,
+                Arguments = $"--model_name \"{ModelName}\" --speaker_idx {SpeakerIdx} --text \"{escapedText}\" --out_path \"{tempWavPath}\"",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            };
+
+            // Ensure Coqui finds espeak-ng when Unity doesn't inherit shell env.
+            startInfo.EnvironmentVariables["TTS_ESPEAK_LIBRARY"] = "/opt/homebrew/opt/espeak-ng/lib/libespeak-ng.dylib";
+            startInfo.EnvironmentVariables["PATH"] = "/opt/homebrew/bin:" + startInfo.EnvironmentVariables["PATH"];
+
+            string stdout = string.Empty;
+            string stderr = string.Empty;
+
+            try
+            {
+                using (var process = Process.Start(startInfo))
                 {
-                    UnityEngine.Debug.LogError($"Coqui TTS exited with code {process.ExitCode}. Stdout: {stdout} Stderr: {stderr}");
-                    return null;
+                    stdout = process.StandardOutput.ReadToEnd();
+                    stderr = process.StandardError.ReadToEnd();
+                    process.WaitForExit();
+                    if (process.ExitCode != 0)
+                    {
+                        UnityEngine.Debug.LogError($"Coqui TTS exited with code {process.ExitCode}. Stdout: {stdout} Stderr: {stderr}");
+                        return false;
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                UnityEngine.Debug.LogError($"Coqui TTS failed to start: {ex.Message}");
+                return false;
             }
 
             if (!File.Exists(tempWavPath))
             {
                 UnityEngine.Debug.LogError("Coqui TTS did not produce an audio file.");
-                return null;
+                return false;
             }
 
+            return true;
+        });
+
+        if (!ok)
+        {
+            return null;
+        }
+
+        try
+        {
             using (var request = UnityWebRequestMultimedia.GetAudioClip("file://" + tempWavPath, AudioType.WAV))
             {
                 await request.SendWebRequest();
@@ -87,7 +106,5 @@ public static class CoquiTts
             catch (IOException) { }
             catch (UnauthorizedAccessException) { }
         }
-
-        return null;
     }
 }
