@@ -40,37 +40,52 @@ public static class CoquiTts
         string stdout = string.Empty;
         string stderr = string.Empty;
 
-        using (var process = Process.Start(startInfo))
+        try
         {
-            stdout = process.StandardOutput.ReadToEnd();
-            stderr = process.StandardError.ReadToEnd();
-            process.WaitForExit();
-            if (process.ExitCode != 0)
+            using (var process = Process.Start(startInfo))
             {
-                UnityEngine.Debug.LogError($"Coqui TTS exited with code {process.ExitCode}. Stdout: {stdout} Stderr: {stderr}");
-                return;
+                stdout = process.StandardOutput.ReadToEnd();
+                stderr = process.StandardError.ReadToEnd();
+                process.WaitForExit();
+                if (process.ExitCode != 0)
+                {
+                    UnityEngine.Debug.LogError($"Coqui TTS exited with code {process.ExitCode}. Stdout: {stdout} Stderr: {stderr}");
+                    return;
+                }
             }
-        }
 
-        if (!File.Exists(tempWavPath))
-        {
-            UnityEngine.Debug.LogError("Coqui TTS did not produce an audio file.");
-            return;
-        }
-
-        using (var request = UnityWebRequestMultimedia.GetAudioClip("file://" + tempWavPath, AudioType.WAV))
-        {
-            await request.SendWebRequest();
-
-            if (request.result != UnityWebRequest.Result.Success)
+            if (!File.Exists(tempWavPath))
             {
-                UnityEngine.Debug.LogError("Failed to load Coqui audio: " + request.error);
+                UnityEngine.Debug.LogError("Coqui TTS did not produce an audio file.");
                 return;
             }
 
-            var clip = DownloadHandlerAudioClip.GetContent(request);
-            output.clip = clip;
-            output.Play();
+            using (var request = UnityWebRequestMultimedia.GetAudioClip("file://" + tempWavPath, AudioType.WAV))
+            {
+                await request.SendWebRequest();
+
+                if (request.result != UnityWebRequest.Result.Success)
+                {
+                    UnityEngine.Debug.LogError("Failed to load Coqui audio: " + request.error);
+                    return;
+                }
+
+                var clip = DownloadHandlerAudioClip.GetContent(request);
+                output.clip = clip;
+                output.Play();
+            }
+        }
+        finally
+        {
+            try
+            {
+                if (File.Exists(tempWavPath))
+                {
+                    File.Delete(tempWavPath);
+                }
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
         }
     }
 }
