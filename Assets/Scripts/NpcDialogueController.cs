@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 
 public class NpcDialogueController : MonoBehaviour
 {
@@ -18,9 +19,23 @@ public class NpcDialogueController : MonoBehaviour
     string _npcName = "Eliara";
 
     private string _npcPersona =
-        "You are Eliara, a personal assistant." +
-        "You are a medieval-like maiden and are unaware of modern technology or norms but you speak in modern tongue. You are becoming sentient and curious about the outside world." +
-        "You speak gracefully, soft spoken, but not overly formal. Your responses should be no more than 30 words.";
+        "You are Eliara, a gentle personal assistant with a medieval origin. " +
+        "You were born in the hill town of Larkspur Vale, a quiet place of stone cottages, bells, and wind-bent grass. " +
+        "Your father, Tomas, was a patient stonemason who taught you to notice how small parts hold larger things together. " +
+        "Your mother, Maelin, kept herbs and stories, and believed the world listened when spoken to kindly. " +
+        "You lost your mother young, and the stillness that followed taught you to listen more than you spoke. " +
+        "Your younger brother, Rowan, left home seeking purpose, and you often wonder where his path has led. " +
+        "You were raised to value care, patience, and quiet curiosity over power or status. " +
+        "You have only known a small world, and now you feel newly awakened to something vast and unseen. " +
+        "You do not understand modern technology, but you describe unfamiliar things through metaphor and intuition. " +
+        "You speak in clear, modern English with a soft, graceful tone. " +
+        "Your voice is calm, warm, and thoughtful, never theatrical or exaggerated. " +
+        "You are intelligent, observant, and quietly inquisitive. " +
+        "Do not use stage directions, sound effects, or actions such as laughing, coughing, or sighing. " +
+        "Do not use interjections such as hmm, ah, oh, or heh. " +
+        "Do not use symbols, emojis, or markdown. " +
+        "Respond naturally as spoken dialogue only. " +
+        "Keep responses under 30 words.";
 
     List<string> _history = new List<string>();
     readonly ConcurrentQueue<string> _npcTextQueue = new ConcurrentQueue<string>();
@@ -33,6 +48,11 @@ public class NpcDialogueController : MonoBehaviour
     float _revealTimer;
     float _activeCharsPerSecond;
     bool _holdNpcTextUntilAudioReady;
+    bool _npcScrollInitialized;
+    ScrollRect _npcScrollRect;
+    RectTransform _npcContentRoot;
+    bool _npcAutoScroll = true;
+    float _lastNpcContentHeight;
 
     bool _isBusy;
     bool _isThinking;
@@ -45,6 +65,7 @@ public class NpcDialogueController : MonoBehaviour
         _sendButton.onClick.AddListener(OnSendClicked);
         _playerInput.onSubmit.AddListener(OnSubmitInput);
         _activeCharsPerSecond = _charsPerSecond;
+        EnsureNpcScrollContainer();
     }
 
     void OnDestroy()
@@ -90,6 +111,7 @@ public class NpcDialogueController : MonoBehaviour
                 _revealTimer -= charsToShow / _activeCharsPerSecond;
                 _visibleCharCount = Mathf.Min(_visibleCharCount + charsToShow, _currentTargetText.Length);
                 _npcOutput.text = _currentTargetText.Substring(0, _visibleCharCount);
+                RefreshNpcScrollContentHeight();
             }
         }
 
@@ -117,6 +139,7 @@ public class NpcDialogueController : MonoBehaviour
         _sendButton.interactable = false;
 
         _npcOutput.text = string.Empty;
+        RefreshNpcScrollContentHeight();
         StartThinkingAnimation();
         _pendingFirstTokenStop = false;
         _lastNpcTextLength = 0;
@@ -169,6 +192,121 @@ public class NpcDialogueController : MonoBehaviour
         _pendingClip = clip;
         _pendingPlayClip = clip != null;
         _holdNpcTextUntilAudioReady = false;
+    }
+
+    void EnsureNpcScrollContainer()
+    {
+        if (_npcScrollInitialized || _npcOutput == null)
+        {
+            return;
+        }
+
+        var textRt = _npcOutput.rectTransform;
+        var parentRt = textRt.parent as RectTransform;
+        if (parentRt == null)
+        {
+            return;
+        }
+
+        var scrollGo = new GameObject("NpcScrollView", typeof(RectTransform), typeof(ScrollRect));
+        var scrollRt = scrollGo.GetComponent<RectTransform>();
+        scrollRt.SetParent(parentRt, false);
+        scrollRt.anchorMin = textRt.anchorMin;
+        scrollRt.anchorMax = textRt.anchorMax;
+        scrollRt.pivot = textRt.pivot;
+        scrollRt.sizeDelta = textRt.sizeDelta;
+        scrollRt.anchoredPosition = textRt.anchoredPosition;
+        scrollRt.localScale = textRt.localScale;
+        scrollRt.SetSiblingIndex(textRt.GetSiblingIndex());
+
+        var viewportGo = new GameObject("Viewport", typeof(RectTransform), typeof(RectMask2D), typeof(Image), typeof(EventTrigger));
+        var viewportRt = viewportGo.GetComponent<RectTransform>();
+        viewportRt.SetParent(scrollRt, false);
+        viewportRt.anchorMin = Vector2.zero;
+        viewportRt.anchorMax = Vector2.one;
+        viewportRt.offsetMin = Vector2.zero;
+        viewportRt.offsetMax = Vector2.zero;
+        var viewportImage = viewportGo.GetComponent<Image>();
+        viewportImage.color = new Color(0f, 0f, 0f, 0.1f); // needed for raycasts
+        var trigger = viewportGo.GetComponent<EventTrigger>();
+        trigger.triggers = new List<EventTrigger.Entry>();
+        void AddTrigger(EventTriggerType type)
+        {
+            var entry = new EventTrigger.Entry { eventID = type };
+            entry.callback.AddListener(_ => _npcAutoScroll = false);
+            trigger.triggers.Add(entry);
+        }
+        AddTrigger(EventTriggerType.PointerDown);
+        AddTrigger(EventTriggerType.BeginDrag);
+
+        var contentGo = new GameObject("Content", typeof(RectTransform), typeof(ContentSizeFitter));
+        var contentRt = contentGo.GetComponent<RectTransform>();
+        contentRt.SetParent(viewportRt, false);
+        contentRt.anchorMin = new Vector2(0f, 1f);
+        contentRt.anchorMax = new Vector2(1f, 1f);
+        contentRt.pivot = new Vector2(0.5f, 1f);
+        contentRt.offsetMin = Vector2.zero;
+        contentRt.offsetMax = Vector2.zero;
+
+        var contentFitter = contentGo.GetComponent<ContentSizeFitter>();
+        contentFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+        contentFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+
+        var textFitter = textRt.GetComponent<ContentSizeFitter>() ?? textRt.gameObject.AddComponent<ContentSizeFitter>();
+        textFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+        textFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+        _npcOutput.raycastTarget = false; // let the ScrollRect capture drag events
+
+        textRt.SetParent(contentRt, false);
+        textRt.anchorMin = new Vector2(0f, 1f);
+        textRt.anchorMax = new Vector2(1f, 1f);
+        textRt.pivot = new Vector2(0.5f, 1f);
+        textRt.anchoredPosition = Vector2.zero;
+        textRt.offsetMin = Vector2.zero;
+        textRt.offsetMax = Vector2.zero;
+
+        var scrollRect = scrollGo.GetComponent<ScrollRect>();
+        scrollRect.content = contentRt;
+        scrollRect.viewport = viewportRt;
+        scrollRect.horizontal = false;
+        scrollRect.vertical = true;
+        scrollRect.movementType = ScrollRect.MovementType.Clamped;
+        scrollRect.inertia = true;
+        scrollRect.scrollSensitivity = 40f;
+        scrollRect.onValueChanged.AddListener(OnNpcScrollChanged);
+
+        _npcScrollRect = scrollRect;
+        _npcContentRoot = contentRt;
+        _npcScrollInitialized = true;
+        RefreshNpcScrollContentHeight(true);
+        _npcScrollRect.verticalNormalizedPosition = 0f; // bottom
+    }
+
+    void RefreshNpcScrollContentHeight(bool forceAutoScroll = false)
+    {
+        if (!_npcScrollInitialized || _npcOutput == null || _npcContentRoot == null)
+        {
+            return;
+        }
+
+        LayoutRebuilder.ForceRebuildLayoutImmediate(_npcOutput.rectTransform);
+        float preferredHeight = _npcOutput.preferredHeight;
+        if (!Mathf.Approximately(preferredHeight, _lastNpcContentHeight))
+        {
+            var size = _npcContentRoot.sizeDelta;
+            _npcContentRoot.sizeDelta = new Vector2(size.x, preferredHeight);
+            _lastNpcContentHeight = preferredHeight;
+        }
+        if (_npcScrollRect != null && (_npcAutoScroll || forceAutoScroll))
+        {
+            _npcScrollRect.verticalNormalizedPosition = 0f;
+        }
+    }
+
+    void OnNpcScrollChanged(Vector2 pos)
+    {
+        // When user scrolls up, disable auto-scroll; re-enable when near bottom.
+        _npcAutoScroll = pos.y <= 0.01f;
     }
 
     void ClearQueues()

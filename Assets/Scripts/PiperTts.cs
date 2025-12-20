@@ -16,7 +16,7 @@ public static class PiperTts
     static readonly string PiperExecutable = Path.Combine(ProjectRoot, "piper1-gpl-git/.venv/bin/piper");
     static readonly string ModelPath = Path.Combine(ProjectRoot, "Assets/Piper/Models/en_GB-vctk-medium.onnx");
     public const string Speaker = "0";
-    public const float LengthScale = 1.75f; // >1 slows speech, <1 speeds it up
+    public const float LengthScale = 1.7f; // >1 slows speech, <1 speeds it up
     const string TempFileName = "npc_piper.wav";
 
     public static async Task<AudioClip> GenerateClipAsync(string text)
