@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
+using System.Globalization;
 using UnityEngine;
 using UnityEngine.Networking;
 
@@ -14,6 +15,8 @@ public static class PiperTts
     static readonly string ProjectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
     static readonly string PiperExecutable = Path.Combine(ProjectRoot, "piper1-gpl-git/.venv/bin/piper");
     static readonly string ModelPath = Path.Combine(ProjectRoot, "Assets/Piper/Models/en_GB-vctk-medium.onnx");
+    public const string Speaker = "0";
+    public const float LengthScale = 1.75f; // >1 slows speech, <1 speeds it up
     const string TempFileName = "npc_piper.wav";
 
     public static async Task<AudioClip> GenerateClipAsync(string text)
@@ -30,7 +33,7 @@ public static class PiperTts
             var startInfo = new ProcessStartInfo
             {
                 FileName = PiperExecutable,
-                Arguments = $"--model \"{ModelPath}\" --output_file \"{tempWavPath}\"",
+                Arguments = $"--model \"{ModelPath}\" --output_file \"{tempWavPath}\" --speaker {Speaker} --length-scale {LengthScale.ToString(CultureInfo.InvariantCulture)}",
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 RedirectStandardInput = true,
