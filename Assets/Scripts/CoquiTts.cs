@@ -10,7 +10,9 @@ using UnityEngine.Networking;
 /// </summary>
 public static class CoquiTts
 {
-    const string TtsExecutable = "/Users/jeromebyrne/coqui-tts-env/bin/tts"; // adjust to your env path if different
+    // Resolved relative to the Unity project root (parent of Assets).
+    static readonly string ProjectRoot = System.IO.Path.GetFullPath(System.IO.Path.Combine(UnityEngine.Application.dataPath, ".."));
+    static readonly string TtsExecutable = System.IO.Path.Combine(ProjectRoot, "coqui-tts-env/bin/tts"); // adjust to your env path if different
     const string ModelName = "tts_models/en/vctk/vits";
     const string SpeakerIdx = "p364";
 

@@ -31,6 +31,8 @@ public class NpcDialogueController : MonoBehaviour
     string _currentTargetText = string.Empty;
     int _visibleCharCount;
     float _revealTimer;
+    float _activeCharsPerSecond;
+    bool _holdNpcTextUntilAudioReady;
 
     bool _isBusy;
     bool _isThinking;
@@ -42,6 +44,7 @@ public class NpcDialogueController : MonoBehaviour
         _playerInput.lineType = TMP_InputField.LineType.MultiLineSubmit; // wrap text, Enter submits
         _sendButton.onClick.AddListener(OnSendClicked);
         _playerInput.onSubmit.AddListener(OnSubmitInput);
+        _activeCharsPerSecond = _charsPerSecond;
     }
 
     void OnDestroy()
@@ -60,28 +63,31 @@ public class NpcDialogueController : MonoBehaviour
 
     void Update()
     {
-        if (_pendingFirstTokenStop)
+        if (_pendingFirstTokenStop && !_holdNpcTextUntilAudioReady)
         {
             _pendingFirstTokenStop = false;
             StopThinkingAnimation();
         }
 
-        while (_npcTextQueue.TryDequeue(out var text))
+        if (!_holdNpcTextUntilAudioReady)
         {
-            _currentTargetText = text;
-            if (_visibleCharCount > _currentTargetText.Length)
+            while (_npcTextQueue.TryDequeue(out var text))
             {
-                _visibleCharCount = _currentTargetText.Length;
+                _currentTargetText = text;
+                if (_visibleCharCount > _currentTargetText.Length)
+                {
+                    _visibleCharCount = _currentTargetText.Length;
+                }
             }
         }
 
-        if (!string.IsNullOrEmpty(_currentTargetText))
+        if (!_holdNpcTextUntilAudioReady && !string.IsNullOrEmpty(_currentTargetText))
         {
             _revealTimer += Time.deltaTime;
-            int charsToShow = Mathf.FloorToInt(_revealTimer * _charsPerSecond);
+            int charsToShow = Mathf.FloorToInt(_revealTimer * _activeCharsPerSecond);
             if (charsToShow > 0)
             {
-                _revealTimer -= charsToShow / _charsPerSecond;
+                _revealTimer -= charsToShow / _activeCharsPerSecond;
                 _visibleCharCount = Mathf.Min(_visibleCharCount + charsToShow, _currentTargetText.Length);
                 _npcOutput.text = _currentTargetText.Substring(0, _visibleCharCount);
             }
@@ -118,6 +124,9 @@ public class NpcDialogueController : MonoBehaviour
         _currentTargetText = string.Empty;
         _visibleCharCount = 0;
         _revealTimer = 0f;
+        _holdNpcTextUntilAudioReady = true;
+        // Align text reveal speed with Piper length scale: slower audio -> slower text reveal.
+        _activeCharsPerSecond = _charsPerSecond / PiperTts.LengthScale;
 
         string historyText = string.Join("\n", _history);
         string npcReply = await NpcDialogueService.GetNpcReplyStreamed(
@@ -156,9 +165,10 @@ public class NpcDialogueController : MonoBehaviour
 
     async Task GenerateClipAsync(string text)
     {
-        var clip = await CoquiTts.GenerateClipAsync(text);
+        var clip = await PiperTts.GenerateClipAsync(text);
         _pendingClip = clip;
         _pendingPlayClip = clip != null;
+        _holdNpcTextUntilAudioReady = false;
     }
 
     void ClearQueues()
