@@ -31,6 +31,7 @@ public class NpcDialogueController : MonoBehaviour
     string _currentTargetText = string.Empty;
     int _visibleCharCount;
     float _revealTimer;
+    bool _holdNpcTextUntilAudioReady;
 
     bool _isBusy;
     bool _isThinking;
@@ -66,16 +67,19 @@ public class NpcDialogueController : MonoBehaviour
             StopThinkingAnimation();
         }
 
-        while (_npcTextQueue.TryDequeue(out var text))
+        if (!_holdNpcTextUntilAudioReady)
         {
-            _currentTargetText = text;
-            if (_visibleCharCount > _currentTargetText.Length)
+            while (_npcTextQueue.TryDequeue(out var text))
             {
-                _visibleCharCount = _currentTargetText.Length;
+                _currentTargetText = text;
+                if (_visibleCharCount > _currentTargetText.Length)
+                {
+                    _visibleCharCount = _currentTargetText.Length;
+                }
             }
         }
 
-        if (!string.IsNullOrEmpty(_currentTargetText))
+        if (!_holdNpcTextUntilAudioReady && !string.IsNullOrEmpty(_currentTargetText))
         {
             _revealTimer += Time.deltaTime;
             int charsToShow = Mathf.FloorToInt(_revealTimer * _charsPerSecond);
@@ -118,6 +122,7 @@ public class NpcDialogueController : MonoBehaviour
         _currentTargetText = string.Empty;
         _visibleCharCount = 0;
         _revealTimer = 0f;
+        _holdNpcTextUntilAudioReady = true;
 
         string historyText = string.Join("\n", _history);
         string npcReply = await NpcDialogueService.GetNpcReplyStreamed(
@@ -159,6 +164,7 @@ public class NpcDialogueController : MonoBehaviour
         var clip = await PiperTts.GenerateClipAsync(text);
         _pendingClip = clip;
         _pendingPlayClip = clip != null;
+        _holdNpcTextUntilAudioReady = false;
     }
 
     void ClearQueues()
