@@ -156,7 +156,7 @@ public class NpcDialogueController : MonoBehaviour
 
     async Task GenerateClipAsync(string text)
     {
-        var clip = await CoquiTts.GenerateClipAsync(text);
+        var clip = await PiperTts.GenerateClipAsync(text);
         _pendingClip = clip;
         _pendingPlayClip = clip != null;
     }
