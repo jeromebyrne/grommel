@@ -10,9 +10,10 @@ using UnityEngine.Networking;
 /// </summary>
 public static class PiperTts
 {
-    // Adjust these to your install.
-    const string PiperExecutable = "/Users/jeromebyrne/Documents/git/grommel/piper1-gpl-git/.venv/bin/piper";
-    const string ModelPath = "/Users/jeromebyrne/models/piper/en_GB-vctk-medium.onnx";
+    // Resolved relative to the Unity project root (parent of Assets).
+    static readonly string ProjectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+    static readonly string PiperExecutable = Path.Combine(ProjectRoot, "piper1-gpl-git/.venv/bin/piper");
+    static readonly string ModelPath = Path.Combine(ProjectRoot, "Assets/Piper/Models/en_GB-vctk-medium.onnx");
     const string TempFileName = "npc_piper.wav";
 
     public static async Task<AudioClip> GenerateClipAsync(string text)

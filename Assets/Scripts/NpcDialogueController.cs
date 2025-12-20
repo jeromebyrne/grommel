@@ -61,7 +61,7 @@ public class NpcDialogueController : MonoBehaviour
 
     void Update()
     {
-        if (_pendingFirstTokenStop)
+        if (_pendingFirstTokenStop && !_holdNpcTextUntilAudioReady)
         {
             _pendingFirstTokenStop = false;
             StopThinkingAnimation();
