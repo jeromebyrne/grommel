@@ -14,8 +14,8 @@ public static class PiperTts
     // Resolved relative to the Unity project root (parent of Assets).
     static readonly string ProjectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
     static readonly string PiperExecutable = Path.Combine(ProjectRoot, "piper1-gpl-git/.venv/bin/piper");
-    static readonly string ModelPath = Path.Combine(ProjectRoot, "Assets/Piper/Models/en_GB-vctk-medium.onnx");
-    public const string Speaker = "0";
+    static readonly string ModelPath = Path.Combine(ProjectRoot, "Assets/Piper/Models/en_GB-vctk-medium.onnx"); // single-speaker
+    public const string Speaker = "0"; // leave empty for single-speaker models
     public const float LengthScale = 1.7f; // >1 slows speech, <1 speeds it up
     const string TempFileName = "npc_piper.wav";
 
@@ -27,13 +27,16 @@ public static class PiperTts
         }
 
         string tempWavPath = Path.Combine(Application.temporaryCachePath, TempFileName);
+        bool hasSpeaker = !string.IsNullOrWhiteSpace(Speaker);
 
         bool ok = await Task.Run(() =>
         {
             var startInfo = new ProcessStartInfo
             {
                 FileName = PiperExecutable,
-                Arguments = $"--model \"{ModelPath}\" --output_file \"{tempWavPath}\" --speaker {Speaker} --length-scale {LengthScale.ToString(CultureInfo.InvariantCulture)}",
+                Arguments = hasSpeaker
+                    ? $"--model \"{ModelPath}\" --output_file \"{tempWavPath}\" --speaker {Speaker} --length-scale {LengthScale.ToString(CultureInfo.InvariantCulture)}"
+                    : $"--model \"{ModelPath}\" --output_file \"{tempWavPath}\" --length-scale {LengthScale.ToString(CultureInfo.InvariantCulture)}",
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 RedirectStandardInput = true,
