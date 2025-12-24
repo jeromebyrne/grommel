@@ -1,23 +1,28 @@
+using System;
 using System.Text;
 using System.Threading.Tasks;
 
-public static class NpcDialogueService
+public class NpcDialogueService
 {
-    public static async Task<string> GetNpcReplyStreamed(string npcName, string persona, string history, string playerLine, System.Action<string> onDelta)
+    readonly ILlmProvider _llm;
+
+    public NpcDialogueService(ILlmProvider llm)
     {
-        string prompt = BuildPrompt(npcName, persona, history, playerLine);
-        string reply = await OllamaClient.GenerateStreamAsync("llama3:8b", prompt, onDelta);
-        return reply;
+        _llm = llm;
     }
 
-    public static async Task<string> GetNpcReply(string npcName, string persona, string history, string playerLine)
+    public Task<string> GetNpcReplyStreamed(string npcName, string persona, string history, string playerLine, Action<string> onDelta)
     {
-        string prompt = BuildPrompt(npcName, persona, history, playerLine);
-        string reply = await OllamaClient.GenerateAsync("llama3:8b", prompt);
-        return reply;
+        // Streaming not yet implemented on ILlmProvider; fallback to single reply and emit once.
+        return GetNpcReply(npcName, persona, history, playerLine);
     }
 
-    static string BuildPrompt(string npcName, string persona, string history, string playerLine)
+    public Task<string> GetNpcReply(string npcName, string persona, string history, string playerLine)
+    {
+        return _llm.GetReplyAsync(npcName, persona, history, playerLine);
+    }
+
+    public static string BuildPrompt(string npcName, string persona, string history, string playerLine)
     {
         var sb = new StringBuilder();
         sb.Append("You are ");

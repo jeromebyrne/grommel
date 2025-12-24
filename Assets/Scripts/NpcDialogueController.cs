@@ -14,6 +14,7 @@ public class NpcDialogueController : MonoBehaviour
     [SerializeField] AudioSource _npcAudio;
     [SerializeField] float _charsPerSecond = 40f;
     [SerializeField] TtsProviderKind _ttsProviderKind = TtsProviderKind.Piper;
+    [SerializeField] LlmProviderKind _llmProviderKind = LlmProviderKind.Ollama;
 
     [SerializeField] string _thinkingBaseText = "Thinking";
 
@@ -60,6 +61,7 @@ public class NpcDialogueController : MonoBehaviour
     Coroutine _thinkingCoroutine;
     bool _pendingFirstTokenStop;
     ITtsProvider _ttsProvider;
+    ILlmProvider _llmProvider;
 
     void Awake()
     {
@@ -68,6 +70,7 @@ public class NpcDialogueController : MonoBehaviour
         _playerInput.onSubmit.AddListener(OnSubmitInput);
         EnsureNpcScrollContainer();
         _ttsProvider = CreateTtsProvider();
+        _llmProvider = CreateLlmProvider();
         _activeCharsPerSecond = _charsPerSecond / (_ttsProvider?.LengthScale ?? 1f);
     }
 
@@ -155,12 +158,9 @@ public class NpcDialogueController : MonoBehaviour
         _activeCharsPerSecond = _charsPerSecond / (_ttsProvider?.LengthScale ?? 1f);
 
         string historyText = string.Join("\n", _history);
-        string npcReply = await NpcDialogueService.GetNpcReplyStreamed(
-            _npcName,
-            _npcPersona,
-            historyText,
-            playerLine,
-            OnNpcTextDelta);
+        var dialogueService = new NpcDialogueService(_llmProvider);
+        string npcReply = await dialogueService.GetNpcReply(_npcName, _npcPersona, historyText, playerLine);
+        OnNpcTextDelta(npcReply);
 
         _history.Add("Player: " + playerLine);
         _history.Add(_npcName + ": " + npcReply);
@@ -213,6 +213,16 @@ public class NpcDialogueController : MonoBehaviour
             case TtsProviderKind.Piper:
             default:
                 return new PiperTtsProvider();
+        }
+    }
+
+    ILlmProvider CreateLlmProvider()
+    {
+        switch (_llmProviderKind)
+        {
+            case LlmProviderKind.Ollama:
+            default:
+                return new OllamaLlmProvider("llama3:8b", "http://localhost:11434");
         }
     }
 

@@ -4,11 +4,17 @@ using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 
-public static class OllamaClient
+public class OllamaClient
 {
-    static readonly HttpClient _client = new HttpClient();
+    readonly HttpClient _client;
+    readonly string _baseUrl;
 
-    [Serializable]
+    public OllamaClient(string baseUrl = "http://localhost:11434")
+    {
+        _client = new HttpClient();
+        _baseUrl = baseUrl.TrimEnd('/');
+    }
+
     class GenerateRequest
     {
         public string model;
@@ -16,14 +22,13 @@ public static class OllamaClient
         public bool stream;
     }
 
-    [Serializable]
     class GenerateResponse
     {
         public string response;
         public bool done;
     }
 
-    public static async Task<string> GenerateAsync(string model, string prompt)
+    public async Task<string> GenerateAsync(string model, string prompt)
     {
         var request = new GenerateRequest
         {
@@ -35,14 +40,14 @@ public static class OllamaClient
         string json = JsonUtility.ToJson(request);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-        var httpResponse = await _client.PostAsync("http://localhost:11434/api/generate", content);
+        var httpResponse = await _client.PostAsync($"{_baseUrl}/api/generate", content);
         string body = await httpResponse.Content.ReadAsStringAsync();
 
         var response = JsonUtility.FromJson<GenerateResponse>(body);
         return response != null ? response.response : string.Empty;
     }
 
-    public static async Task<string> GenerateStreamAsync(string model, string prompt, System.Action<string> onDelta)
+    public async Task<string> GenerateStreamAsync(string model, string prompt, System.Action<string> onDelta)
     {
         var request = new GenerateRequest
         {
@@ -54,7 +59,7 @@ public static class OllamaClient
         string json = JsonUtility.ToJson(request);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "http://localhost:11434/api/generate")
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, $"{_baseUrl}/api/generate")
         {
             Content = content
         };
