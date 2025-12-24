@@ -13,6 +13,7 @@ public class NpcDialogueController : MonoBehaviour
     [SerializeField] Button _sendButton;
     [SerializeField] AudioSource _npcAudio;
     [SerializeField] float _charsPerSecond = 40f;
+    [SerializeField] TtsProviderKind _ttsProviderKind = TtsProviderKind.Piper;
 
     [SerializeField] string _thinkingBaseText = "Thinking";
 
@@ -35,7 +36,7 @@ public class NpcDialogueController : MonoBehaviour
         "Do not use interjections such as hmm, ah, oh, or heh. " +
         "Do not use symbols, emojis, or markdown. " +
         "Respond naturally as spoken dialogue only. " +
-        "Keep responses under 30 words.";
+        "Responses should be concise.";
 
     List<string> _history = new List<string>();
     readonly ConcurrentQueue<string> _npcTextQueue = new ConcurrentQueue<string>();
@@ -58,14 +59,16 @@ public class NpcDialogueController : MonoBehaviour
     bool _isThinking;
     Coroutine _thinkingCoroutine;
     bool _pendingFirstTokenStop;
+    ITtsProvider _ttsProvider;
 
     void Awake()
     {
         _playerInput.lineType = TMP_InputField.LineType.MultiLineSubmit; // wrap text, Enter submits
         _sendButton.onClick.AddListener(OnSendClicked);
         _playerInput.onSubmit.AddListener(OnSubmitInput);
-        _activeCharsPerSecond = _charsPerSecond;
         EnsureNpcScrollContainer();
+        _ttsProvider = CreateTtsProvider();
+        _activeCharsPerSecond = _charsPerSecond / (_ttsProvider?.LengthScale ?? 1f);
     }
 
     void OnDestroy()
@@ -77,12 +80,12 @@ public class NpcDialogueController : MonoBehaviour
         }
     }
 
-    void OnSubmitInput(string value)
+    private void OnSubmitInput(string value)
     {
         OnSendClicked();
     }
 
-    void Update()
+    private void Update()
     {
         if (_pendingFirstTokenStop && !_holdNpcTextUntilAudioReady)
         {
@@ -122,7 +125,7 @@ public class NpcDialogueController : MonoBehaviour
         }
     }
 
-    async void OnSendClicked()
+    private async void OnSendClicked()
     {
         if (_isBusy)
         {
@@ -149,7 +152,7 @@ public class NpcDialogueController : MonoBehaviour
         _revealTimer = 0f;
         _holdNpcTextUntilAudioReady = true;
         // Align text reveal speed with Piper length scale: slower audio -> slower text reveal.
-        _activeCharsPerSecond = _charsPerSecond / PiperTts.LengthScale;
+        _activeCharsPerSecond = _charsPerSecond / (_ttsProvider?.LengthScale ?? 1f);
 
         string historyText = string.Join("\n", _history);
         string npcReply = await NpcDialogueService.GetNpcReplyStreamed(
@@ -174,7 +177,7 @@ public class NpcDialogueController : MonoBehaviour
         _isBusy = false;
     }
 
-    void OnNpcTextDelta(string text)
+    private void OnNpcTextDelta(string text)
     {
         if (!_pendingFirstTokenStop)
         {
@@ -186,15 +189,32 @@ public class NpcDialogueController : MonoBehaviour
         _npcTextQueue.Enqueue(text);
     }
 
-    async Task GenerateClipAsync(string text)
+    private async Task GenerateClipAsync(string text)
     {
-        var clip = await PiperTts.GenerateClipAsync(text);
+        if (_ttsProvider == null)
+        {
+            return;
+        }
+
+        var clip = await _ttsProvider.GenerateClipAsync(text);
         _pendingClip = clip;
         _pendingPlayClip = clip != null;
         _holdNpcTextUntilAudioReady = false;
     }
 
-    void EnsureNpcScrollContainer()
+    ITtsProvider CreateTtsProvider()
+    {
+        switch (_ttsProviderKind)
+        {
+            case TtsProviderKind.Coqui:
+                return new CoquiTtsProvider();
+            case TtsProviderKind.Piper:
+            default:
+                return new PiperTtsProvider();
+        }
+    }
+
+    private void EnsureNpcScrollContainer()
     {
         if (_npcScrollInitialized || _npcOutput == null)
         {
@@ -282,7 +302,7 @@ public class NpcDialogueController : MonoBehaviour
         _npcScrollRect.verticalNormalizedPosition = 0f; // bottom
     }
 
-    void RefreshNpcScrollContentHeight(bool forceAutoScroll = false)
+    private void RefreshNpcScrollContentHeight(bool forceAutoScroll = false)
     {
         if (!_npcScrollInitialized || _npcOutput == null || _npcContentRoot == null)
         {
@@ -303,13 +323,13 @@ public class NpcDialogueController : MonoBehaviour
         }
     }
 
-    void OnNpcScrollChanged(Vector2 pos)
+    private void OnNpcScrollChanged(Vector2 pos)
     {
         // When user scrolls up, disable auto-scroll; re-enable when near bottom.
         _npcAutoScroll = pos.y <= 0.01f;
     }
 
-    void ClearQueues()
+    private void ClearQueues()
     {
         while (_npcTextQueue.TryDequeue(out _)) { }
     }
@@ -326,7 +346,7 @@ public class NpcDialogueController : MonoBehaviour
         _pendingClip = null;
     }
 
-    void StartThinkingAnimation()
+    private void StartThinkingAnimation()
     {
         _isThinking = true;
         if (_thinkingCoroutine != null)
@@ -336,7 +356,7 @@ public class NpcDialogueController : MonoBehaviour
         _thinkingCoroutine = StartCoroutine(ThinkingRoutine());
     }
 
-    void StopThinkingAnimation()
+    private void StopThinkingAnimation()
     {
         _isThinking = false;
         if (_thinkingCoroutine != null)
@@ -346,7 +366,7 @@ public class NpcDialogueController : MonoBehaviour
         }
     }
 
-    System.Collections.IEnumerator ThinkingRoutine()
+    private System.Collections.IEnumerator ThinkingRoutine()
     {
         int dotCount = 0;
         while (_isThinking)

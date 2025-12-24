@@ -8,15 +8,26 @@ using UnityEngine.Networking;
 /// <summary>
 /// Bridge to the Coqui TTS CLI. Generates a WAV file and plays it through a provided AudioSource.
 /// </summary>
-public static class CoquiTts
+public class CoquiTts : ITtsProvider
 {
-    // Resolved relative to the Unity project root (parent of Assets).
-    static readonly string ProjectRoot = System.IO.Path.GetFullPath(System.IO.Path.Combine(UnityEngine.Application.dataPath, ".."));
-    static readonly string TtsExecutable = System.IO.Path.Combine(ProjectRoot, "coqui-tts-env/bin/tts"); // adjust to your env path if different
-    const string ModelName = "tts_models/en/vctk/vits";
-    const string SpeakerIdx = "p364";
+    readonly string _ttsExecutable;
+    readonly string _modelName;
+    readonly string _speakerIdx;
 
-    public static async Task<AudioClip> GenerateClipAsync(string text)
+    public float LengthScale => 1f;
+
+    public CoquiTts(
+        string ttsExecutable = null,
+        string modelName = "tts_models/en/vctk/vits",
+        string speakerIdx = "p364")
+    {
+        string projectRoot = System.IO.Path.GetFullPath(System.IO.Path.Combine(UnityEngine.Application.dataPath, ".."));
+        _ttsExecutable = ttsExecutable ?? System.IO.Path.Combine(projectRoot, "coqui-tts-env/bin/tts");
+        _modelName = modelName;
+        _speakerIdx = speakerIdx;
+    }
+
+    public async Task<AudioClip> GenerateClipAsync(string text)
     {
         if (string.IsNullOrWhiteSpace(text))
         {
@@ -31,8 +42,8 @@ public static class CoquiTts
         {
             var startInfo = new ProcessStartInfo
             {
-                FileName = TtsExecutable,
-                Arguments = $"--model_name \"{ModelName}\" --speaker_idx {SpeakerIdx} --text \"{escapedText}\" --out_path \"{tempWavPath}\"",
+                FileName = _ttsExecutable,
+                Arguments = $"--model_name \"{_modelName}\" --speaker_idx {_speakerIdx} --text \"{escapedText}\" --out_path \"{tempWavPath}\"",
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 RedirectStandardOutput = true,
