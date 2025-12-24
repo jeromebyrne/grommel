@@ -22,6 +22,9 @@ namespace Grommel.EditorTools
         int _selectedIndex = -1;
         string _status = string.Empty;
         Texture2D _previewTexture;
+        double _lastSaveTime = -100f;
+        bool _lastSaveSucceeded;
+        const double SaveFlashSeconds = 2.0;
 
         [MenuItem("Grommel/Persona Editor")]
         public static void Open()
@@ -38,6 +41,8 @@ namespace Grommel.EditorTools
 
         void OnGUI()
         {
+            HandleShortcuts();
+
             EditorGUILayout.BeginHorizontal();
             DrawList();
             DrawDetails();
@@ -49,17 +54,35 @@ namespace Grommel.EditorTools
             {
                 AddPersona();
             }
+            var saveColor = GUI.color;
+            bool highlight = _lastSaveSucceeded && (EditorApplication.timeSinceStartup - _lastSaveTime) <= SaveFlashSeconds;
+            if (highlight)
+            {
+                GUI.color = Color.green;
+            }
             if (GUILayout.Button("Save", GUILayout.Width(120)))
             {
                 Save();
                 _ = LoadPreviewAsync();
             }
+            GUI.color = saveColor;
             GUILayout.FlexibleSpace();
             EditorGUILayout.EndHorizontal();
 
             if (!string.IsNullOrEmpty(_status))
             {
                 EditorGUILayout.HelpBox(_status, MessageType.Info);
+            }
+        }
+
+        void HandleShortcuts()
+        {
+            var evt = Event.current;
+            if (evt != null && evt.type == EventType.KeyDown && evt.keyCode == KeyCode.S && (evt.modifiers & EventModifiers.Command) != 0)
+            {
+                Save();
+                _ = LoadPreviewAsync();
+                evt.Use();
             }
         }
 
@@ -234,12 +257,15 @@ namespace Grommel.EditorTools
                 File.WriteAllText(PersonasAddressablePath, json);
                 AssetDatabase.ImportAsset(PersonasAddressablePath);
                 _status = "Saved personas.";
+                _lastSaveSucceeded = true;
+                _lastSaveTime = EditorApplication.timeSinceStartup;
                 _ = LoadPreviewAsync();
                 _ = LoadAllThumbnailsAsync();
             }
             catch (System.Exception ex)
             {
                 _status = $"Failed to save personas: {ex.Message}";
+                _lastSaveSucceeded = false;
             }
         }
 
