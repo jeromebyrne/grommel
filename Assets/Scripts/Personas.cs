@@ -12,6 +12,7 @@ namespace Grommel.Personas
         public string displayName;
         public string persona;
         public string imagePath;
+        public string speakerId;
     }
 
     public class PersonaConfig

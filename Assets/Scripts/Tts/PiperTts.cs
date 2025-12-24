@@ -33,14 +33,15 @@ namespace Grommel.Tts
             _lengthScale = lengthScale;
         }
 
-        public async Task<AudioClip> GenerateClipAsync(string text)
+        public async Task<AudioClip> GenerateClipAsync(string text, string speakerId = null)
         {
             if (string.IsNullOrWhiteSpace(text))
             {
                 return null;
             }
 
-            bool hasSpeaker = !string.IsNullOrWhiteSpace(_speaker);
+            string speakerToUse = string.IsNullOrWhiteSpace(speakerId) ? _speaker : speakerId;
+            bool hasSpeaker = !string.IsNullOrWhiteSpace(speakerToUse);
             byte[] wavBytes = null;
 
             bool ok = await Task.Run(() =>
@@ -49,11 +50,11 @@ namespace Grommel.Tts
                 {
                     FileName = _piperExecutable,
                     Arguments = hasSpeaker
-                        ? $"--model \"{_modelPath}\" --output_file - --speaker {_speaker} --length-scale {_lengthScale.ToString(CultureInfo.InvariantCulture)}"
+                        ? $"--model \"{_modelPath}\" --output_file - --speaker {speakerToUse} --length-scale {_lengthScale.ToString(CultureInfo.InvariantCulture)}"
                         : $"--model \"{_modelPath}\" --output_file - --length-scale {_lengthScale.ToString(CultureInfo.InvariantCulture)}",
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    RedirectStandardInput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardInput = true,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true
                 };

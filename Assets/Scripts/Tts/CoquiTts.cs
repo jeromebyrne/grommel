@@ -32,7 +32,7 @@ namespace Grommel.Tts
             _speakerIdx = speakerIdx;
         }
 
-        public async Task<AudioClip> GenerateClipAsync(string text)
+        public async Task<AudioClip> GenerateClipAsync(string text, string speakerId = null)
         {
             if (string.IsNullOrWhiteSpace(text))
             {
@@ -51,10 +51,11 @@ namespace Grommel.Tts
             // Run the heavy CLI work off the Unity thread.
             bool ok = await Task.Run(() =>
             {
+                string speakerToUse = string.IsNullOrWhiteSpace(speakerId) ? _speakerIdx : speakerId;
                 var startInfo = new ProcessStartInfo
                 {
                     FileName = _ttsExecutable,
-                    Arguments = $"--model_name \"{_modelName}\" --speaker_idx {_speakerIdx} --text \"{escapedText}\" --out_path \"{tempWavPath}\"",
+                    Arguments = $"--model_name \"{_modelName}\" --speaker_idx {speakerToUse} --text \"{escapedText}\" --out_path \"{tempWavPath}\"",
                     UseShellExecute = false,
                     CreateNoWindow = true,
                     RedirectStandardOutput = true,

@@ -200,7 +200,7 @@ namespace Grommel
                 return;
             }
 
-            var clip = await _ttsProvider.GenerateClipAsync(text);
+        var clip = await _ttsProvider.GenerateClipAsync(text, _activePersona?.speakerId);
             _pendingClip = clip;
             _pendingPlayClip = clip != null;
             _holdNpcTextUntilAudioReady = false;
