@@ -18,7 +18,17 @@ MonoBehaviour:
   m_GUID: a53da711607d546518e4e8920bb917b2
   m_SerializeEntries:
   - m_GUID: 7e7c078292c47425da5a3db8a7f2d7c9
-    m_Address: Addressables
+    m_Address: Asstes/Addressables
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: bd7716e5e658b48bba51992deb4acdff
+    m_Address: Data
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f9fc76414e3024775a1839f81664dbc4
+    m_Address: Images
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

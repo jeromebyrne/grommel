@@ -8,8 +8,10 @@ namespace Grommel.Personas
 {
     public class PersonaEntry
     {
-        public string name;
+        public string characterId;
+        public string displayName;
         public string persona;
+        public string imagePath;
     }
 
     public class PersonaConfig
@@ -20,7 +22,6 @@ namespace Grommel.Personas
     public class PersonaRepository
     {
         Dictionary<string, PersonaEntry> _personas = new Dictionary<string, PersonaEntry>();
-        PersonaEntry _default = new PersonaEntry { name = "NPC", persona = "You are an NPC." };
         readonly string _addressableKey;
         readonly IAddressablesLoader _loader;
 
@@ -30,30 +31,40 @@ namespace Grommel.Personas
             _loader = loader;
         }
 
-        public async Task LoadAsync()
+        public async Task<bool> LoadAsync()
         {
             try
             {
                 TextAsset asset = await _loader.LoadAssetAsync<TextAsset>(_addressableKey);
                 if (asset == null || string.IsNullOrWhiteSpace(asset.text))
                 {
-                    Debug.LogWarning($"Persona asset '{_addressableKey}' not found or empty, using default.");
-                    return;
+                    Debug.LogError($"Persona asset '{_addressableKey}' not found or empty.");
+                    return false;
                 }
 
-                var cfg = JsonConvert.DeserializeObject<PersonaConfig>(asset.text);
-                if (cfg?.entries != null)
+                var root = JsonConvert.DeserializeObject<Dictionary<string, PersonaEntry>>(asset.text);
+                if (root != null && root.Count > 0)
                 {
-                    _personas = cfg.entries;
-                    if (_personas.TryGetValue("default", out var def))
+                    _personas = new Dictionary<string, PersonaEntry>();
+                    foreach (var kvp in root)
                     {
-                        _default = def;
+                        var entry = kvp.Value;
+                        if (entry != null && !string.IsNullOrWhiteSpace(entry.characterId))
+                        {
+                            _personas[entry.characterId.ToLowerInvariant()] = entry;
+                        }
                     }
+                    Debug.Log($"Loaded {_personas.Count} personas from '{_addressableKey}'.");
+                    return true;
                 }
+
+                Debug.LogError($"Persona config '{_addressableKey}' missing entries.");
+                return false;
             }
             catch (System.Exception ex)
             {
                 Debug.LogError($"Failed to load personas from '{_addressableKey}': {ex.Message}");
+                return false;
             }
         }
 
@@ -61,9 +72,17 @@ namespace Grommel.Personas
         {
             if (string.IsNullOrWhiteSpace(key))
             {
-                return _default;
+                Debug.LogError("Persona key is null or empty.");
+                return null;
             }
-            return _personas.TryGetValue(key, out var p) ? p : _default;
+            var normalized = key.ToLowerInvariant();
+            if (_personas.TryGetValue(normalized, out var p))
+            {
+                return p;
+            }
+
+            Debug.LogError($"Persona '{key}' not found in repository.");
+            return null;
         }
     }
 }

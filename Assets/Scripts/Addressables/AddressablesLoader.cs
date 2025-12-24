@@ -18,7 +18,12 @@ namespace Grommel.Addressables
             AsyncOperationHandle<T> handle = UnityEngine.AddressableAssets.Addressables.LoadAssetAsync<T>(key);
             try
             {
-                return await handle.Task;
+                var result = await handle.Task;
+                if (result == null)
+                {
+                    Debug.LogWarning($"Addressables returned null for key '{key}'.");
+                }
+                return result;
             }
             catch (Exception ex)
             {
