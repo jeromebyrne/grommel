@@ -62,6 +62,7 @@ public class NpcDialogueController : MonoBehaviour
     bool _pendingFirstTokenStop;
     ITtsProvider _ttsProvider;
     ILlmProvider _llmProvider;
+    IPromptBuilder _promptBuilder;
 
     void Awake()
     {
@@ -70,7 +71,8 @@ public class NpcDialogueController : MonoBehaviour
         _playerInput.onSubmit.AddListener(OnSubmitInput);
         EnsureNpcScrollContainer();
         _ttsProvider = CreateTtsProvider();
-        _llmProvider = CreateLlmProvider();
+        _promptBuilder = CreatePromptBuilder();
+        _llmProvider = CreateLlmProvider(_promptBuilder);
         _activeCharsPerSecond = _charsPerSecond / (_ttsProvider?.LengthScale ?? 1f);
     }
 
@@ -158,7 +160,7 @@ public class NpcDialogueController : MonoBehaviour
         _activeCharsPerSecond = _charsPerSecond / (_ttsProvider?.LengthScale ?? 1f);
 
         string historyText = string.Join("\n", _history);
-        var dialogueService = new NpcDialogueService(_llmProvider);
+        var dialogueService = new NpcDialogueService(_llmProvider, _promptBuilder);
         string npcReply = await dialogueService.GetNpcReply(_npcName, _npcPersona, historyText, playerLine);
         OnNpcTextDelta(npcReply);
 
@@ -216,13 +218,18 @@ public class NpcDialogueController : MonoBehaviour
         }
     }
 
-    ILlmProvider CreateLlmProvider()
+    IPromptBuilder CreatePromptBuilder()
+    {
+        return new DefaultPromptBuilder();
+    }
+
+    ILlmProvider CreateLlmProvider(IPromptBuilder promptBuilder)
     {
         switch (_llmProviderKind)
         {
             case LlmProviderKind.Ollama:
             default:
-                return new OllamaLlmProvider("llama3:8b", "http://localhost:11434");
+                return new OllamaLlmProvider("llama3:8b", "http://localhost:11434", promptBuilder);
         }
     }
 
