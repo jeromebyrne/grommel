@@ -19,25 +19,9 @@ public class NpcDialogueController : MonoBehaviour
     [SerializeField] string _thinkingBaseText = "Thinking";
 
     string _npcName = "Eliara";
-
-    private string _npcPersona =
-        "You are Eliara, a gentle personal assistant with a medieval origin. " +
-        "You were born in the hill town of Larkspur Vale, a quiet place of stone cottages, bells, and wind-bent grass. " +
-        "Your father, Tomas, was a patient stonemason who taught you to notice how small parts hold larger things together. " +
-        "Your mother, Maelin, kept herbs and stories, and believed the world listened when spoken to kindly. " +
-        "You lost your mother young, and the stillness that followed taught you to listen more than you spoke. " +
-        "Your younger brother, Rowan, left home seeking purpose, and you often wonder where his path has led. " +
-        "You were raised to value care, patience, and quiet curiosity over power or status. " +
-        "You have only known a small world, and now you feel newly awakened to something vast and unseen. " +
-        "You do not understand modern technology, but you describe unfamiliar things through metaphor and intuition. " +
-        "You speak in clear, modern English with a soft, graceful tone. " +
-        "Your voice is calm, warm, and thoughtful, never theatrical or exaggerated. " +
-        "You are intelligent, observant, and quietly inquisitive. " +
-        "Do not use stage directions, sound effects, or actions such as laughing, coughing, or sighing. " +
-        "Do not use interjections such as hmm, ah, oh, or heh. " +
-        "Do not use symbols, emojis, or markdown. " +
-        "Respond naturally as spoken dialogue only. " +
-        "Responses should be concise.";
+    [SerializeField] string _personaKey = "default";
+    PersonaRepository _personaRepo;
+    PersonaEntry _activePersona;
 
     List<string> _history = new List<string>();
     readonly ConcurrentQueue<string> _npcTextQueue = new ConcurrentQueue<string>();
@@ -73,6 +57,8 @@ public class NpcDialogueController : MonoBehaviour
         _ttsProvider = CreateTtsProvider();
         _promptBuilder = CreatePromptBuilder();
         _llmProvider = CreateLlmProvider(_promptBuilder);
+        _personaRepo = CreatePersonaRepository();
+        _activePersona = _personaRepo.Get(_personaKey);
         _activeCharsPerSecond = _charsPerSecond / (_ttsProvider?.LengthScale ?? 1f);
     }
 
@@ -161,11 +147,11 @@ public class NpcDialogueController : MonoBehaviour
 
         string historyText = string.Join("\n", _history);
         var dialogueService = new NpcDialogueService(_llmProvider, _promptBuilder);
-        string npcReply = await dialogueService.GetNpcReply(_npcName, _npcPersona, historyText, playerLine);
+        string npcReply = await dialogueService.GetNpcReply(_activePersona.name, _activePersona.persona, historyText, playerLine);
         OnNpcTextDelta(npcReply);
 
         _history.Add("Player: " + playerLine);
-        _history.Add(_npcName + ": " + npcReply);
+        _history.Add(_activePersona.name + ": " + npcReply);
 
         _currentTargetText = npcReply;
         _playerInput.text = string.Empty;
@@ -231,6 +217,13 @@ public class NpcDialogueController : MonoBehaviour
             default:
                 return new OllamaLlmProvider("llama3:8b", "http://localhost:11434", promptBuilder);
         }
+    }
+
+    PersonaRepository CreatePersonaRepository()
+    {
+        string projectRoot = System.IO.Path.GetFullPath(System.IO.Path.Combine(Application.dataPath, ".."));
+        string personasPath = System.IO.Path.Combine(projectRoot, "Assets/Data/personas.json");
+        return new PersonaRepository(personasPath);
     }
 
     private void EnsureNpcScrollContainer()
