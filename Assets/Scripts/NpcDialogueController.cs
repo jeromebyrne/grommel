@@ -208,6 +208,8 @@ public class NpcDialogueController : MonoBehaviour
         {
             case TtsProviderKind.Coqui:
                 return new CoquiTtsProvider();
+            case TtsProviderKind.Mac:
+                return new MacTtsProvider();
             case TtsProviderKind.Piper:
             default:
                 return new PiperTtsProvider();

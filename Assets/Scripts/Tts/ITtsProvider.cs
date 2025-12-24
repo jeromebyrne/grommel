@@ -13,5 +13,6 @@ public interface ITtsProvider
 public enum TtsProviderKind
 {
     Piper,
-    Coqui
+    Coqui,
+    Mac
 }

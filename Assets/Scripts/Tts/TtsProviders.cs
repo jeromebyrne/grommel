@@ -30,3 +30,23 @@ public class CoquiTtsProvider : ITtsProvider
         return _impl.GenerateClipAsync(text);
     }
 }
+
+/// <summary>
+/// macOS 'say' adapter implementing ITtsProvider (no audio clip returned).
+/// </summary>
+public class MacTtsProvider : ITtsProvider
+{
+    readonly MacTts _impl;
+
+    public float LengthScale => _impl.LengthScale;
+
+    public MacTtsProvider(string voice = "Whisper", int rate = 200)
+    {
+        _impl = new MacTts(voice, rate);
+    }
+
+    public Task<AudioClip> GenerateClipAsync(string text)
+    {
+        return _impl.GenerateClipAsync(text);
+    }
+}
