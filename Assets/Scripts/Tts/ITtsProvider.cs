@@ -9,7 +9,7 @@ namespace Grommel.Tts
     public interface ITtsProvider
     {
         float LengthScale { get; }
-        Task<AudioClip> GenerateClipAsync(string text, string speakerId = null);
+        Task<AudioClip> GenerateClipAsync(string text, string speakerId = null, float? speechRate = null);
     }
 
     public enum TtsProviderKind

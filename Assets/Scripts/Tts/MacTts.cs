@@ -18,7 +18,7 @@ namespace Grommel.Tts
             _rate = rate;
         }
 
-        public Task<AudioClip> GenerateClipAsync(string text, string speakerId = null)
+        public Task<AudioClip> GenerateClipAsync(string text, string speakerId = null, float? speechRate = null)
         {
             Speak(text);
             return Task.FromResult<AudioClip>(null);

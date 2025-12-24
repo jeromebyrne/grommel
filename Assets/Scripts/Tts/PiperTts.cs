@@ -33,7 +33,7 @@ namespace Grommel.Tts
             _lengthScale = lengthScale;
         }
 
-        public async Task<AudioClip> GenerateClipAsync(string text, string speakerId = null)
+        public async Task<AudioClip> GenerateClipAsync(string text, string speakerId = null, float? speechRate = null)
         {
             if (string.IsNullOrWhiteSpace(text))
             {
@@ -46,12 +46,16 @@ namespace Grommel.Tts
 
             bool ok = await Task.Run(() =>
             {
+                float lengthScaleToUse = speechRate.HasValue && speechRate.Value > 0
+                    ? 1f / speechRate.Value // Piper length-scale is inverse of rate.
+                    : _lengthScale;
+
                 var startInfo = new ProcessStartInfo
                 {
                     FileName = _piperExecutable,
                     Arguments = hasSpeaker
-                        ? $"--model \"{_modelPath}\" --output_file - --speaker {speakerToUse} --length-scale {_lengthScale.ToString(CultureInfo.InvariantCulture)}"
-                        : $"--model \"{_modelPath}\" --output_file - --length-scale {_lengthScale.ToString(CultureInfo.InvariantCulture)}",
+                        ? $"--model \"{_modelPath}\" --output_file - --speaker {speakerToUse} --length-scale {lengthScaleToUse.ToString(CultureInfo.InvariantCulture)}"
+                        : $"--model \"{_modelPath}\" --output_file - --length-scale {lengthScaleToUse.ToString(CultureInfo.InvariantCulture)}",
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 RedirectStandardInput = true,

@@ -16,9 +16,9 @@ namespace Grommel.Tts
 
         public float LengthScale => _impl.LengthScale;
 
-        public Task<AudioClip> GenerateClipAsync(string text, string speakerId = null)
+        public Task<AudioClip> GenerateClipAsync(string text, string speakerId = null, float? speechRate = null)
         {
-            return _impl.GenerateClipAsync(text, speakerId);
+            return _impl.GenerateClipAsync(text, speakerId, speechRate);
         }
     }
 
@@ -31,9 +31,9 @@ namespace Grommel.Tts
 
         public float LengthScale => _impl.LengthScale;
 
-        public Task<AudioClip> GenerateClipAsync(string text, string speakerId = null)
+        public Task<AudioClip> GenerateClipAsync(string text, string speakerId = null, float? speechRate = null)
         {
-            return _impl.GenerateClipAsync(text, speakerId);
+            return _impl.GenerateClipAsync(text, speakerId, speechRate);
         }
     }
 
@@ -51,9 +51,9 @@ namespace Grommel.Tts
             _impl = new MacTts(voice, rate);
         }
 
-        public Task<AudioClip> GenerateClipAsync(string text, string speakerId = null)
+        public Task<AudioClip> GenerateClipAsync(string text, string speakerId = null, float? speechRate = null)
         {
-            return _impl.GenerateClipAsync(text, speakerId);
+            return _impl.GenerateClipAsync(text, speakerId, speechRate);
         }
     }
 }

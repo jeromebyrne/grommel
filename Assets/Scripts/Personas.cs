@@ -13,6 +13,15 @@ namespace Grommel.Personas
         public string persona;
         public string imagePath;
         public string speakerId;
+        [JsonProperty("speechRate")]
+        public float speechRate = 1f; // 1 = normal, >1 faster, <1 slower
+
+        // Legacy support for old field name.
+        [JsonProperty("speakSpeed")]
+        float LegacySpeakSpeed
+        {
+            set => speechRate = value;
+        }
     }
 
     public class PersonaConfig
@@ -52,6 +61,10 @@ namespace Grommel.Personas
                         var entry = kvp.Value;
                         if (entry != null && !string.IsNullOrWhiteSpace(entry.characterId))
                         {
+                            if (entry.speechRate <= 0f)
+                            {
+                                entry.speechRate = 1f;
+                            }
                             _personas[entry.characterId.ToLowerInvariant()] = entry;
                         }
                     }

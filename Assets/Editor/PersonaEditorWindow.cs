@@ -10,26 +10,26 @@ using UnityAddressables = UnityEngine.AddressableAssets.Addressables;
 
 namespace Grommel.EditorTools
 {
-    public class PersonaEditorWindow : EditorWindow
-    {
-        const string PersonasAddressablePath = "Assets/Addressables/Data/personas.json";
-
-        Vector2 _listScroll;
-        Vector2 _detailScroll;
-        Vector2 _personaScroll;
-        Dictionary<string, Texture2D> _thumbCache = new Dictionary<string, Texture2D>();
-        List<PersonaEntry> _personas = new List<PersonaEntry>();
-        int _selectedIndex = -1;
-        string _status = string.Empty;
-        Texture2D _previewTexture;
-        double _lastSaveTime = -100f;
-        bool _lastSaveSucceeded;
-        const double SaveFlashSeconds = 2.0;
-
-        [MenuItem("Grommel/Persona Editor")]
-        public static void Open()
+        public class PersonaEditorWindow : EditorWindow
         {
-            var window = GetWindow<PersonaEditorWindow>("Persona Editor");
+            const string PersonasAddressablePath = "Assets/Addressables/Data/personas.json";
+
+            Vector2 _listScroll;
+            Vector2 _detailScroll;
+            Vector2 _personaScroll;
+            Dictionary<string, Texture2D> _thumbCache = new Dictionary<string, Texture2D>();
+            List<PersonaEntry> _personas = new List<PersonaEntry>();
+            int _selectedIndex = -1;
+            string _status = string.Empty;
+            Texture2D _previewTexture;
+            double _lastSaveTime = -100f;
+            bool _lastSaveSucceeded;
+            const double SaveFlashSeconds = 2.0;
+
+            [MenuItem("Grommel/Persona Editor")]
+            public static void Open()
+            {
+                var window = GetWindow<PersonaEditorWindow>("Persona Editor");
             window.minSize = new Vector2(700, 400);
             window.Refresh();
         }
@@ -154,6 +154,11 @@ namespace Grommel.EditorTools
             p.speakerId = EditorGUILayout.TextField(p.speakerId, GUILayout.Width(fieldWidth));
             EditorGUILayout.EndHorizontal();
 
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField("Speech Rate", GUILayout.Width(labelWidth));
+            p.speechRate = EditorGUILayout.FloatField(p.speechRate, GUILayout.Width(fieldWidth));
+            EditorGUILayout.EndHorizontal();
+
             EditorGUILayout.LabelField("Persona", EditorStyles.label);
             var wrapStyle = new GUIStyle(EditorStyles.textArea) { wordWrap = true };
             _personaScroll = EditorGUILayout.BeginScrollView(_personaScroll, GUILayout.Height(160), GUILayout.Width(fieldWidth + labelWidth));
@@ -180,7 +185,8 @@ namespace Grommel.EditorTools
                 characterId = "new_character",
                 displayName = "New Character",
                 persona = "Describe this character...",
-                imagePath = string.Empty
+                imagePath = string.Empty,
+                speechRate = 1f
             };
             _personas.Add(entry);
             _selectedIndex = _personas.Count - 1;

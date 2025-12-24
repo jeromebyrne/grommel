@@ -32,7 +32,7 @@ namespace Grommel.Tts
             _speakerIdx = speakerIdx;
         }
 
-        public async Task<AudioClip> GenerateClipAsync(string text, string speakerId = null)
+        public async Task<AudioClip> GenerateClipAsync(string text, string speakerId = null, float? speechRate = null)
         {
             if (string.IsNullOrWhiteSpace(text))
             {
@@ -52,10 +52,11 @@ namespace Grommel.Tts
             bool ok = await Task.Run(() =>
             {
                 string speakerToUse = string.IsNullOrWhiteSpace(speakerId) ? _speakerIdx : speakerId;
+                string speedArg = speechRate.HasValue && speechRate.Value > 0 ? $" --speed {speechRate.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}" : string.Empty;
                 var startInfo = new ProcessStartInfo
                 {
                     FileName = _ttsExecutable,
-                    Arguments = $"--model_name \"{_modelName}\" --speaker_idx {speakerToUse} --text \"{escapedText}\" --out_path \"{tempWavPath}\"",
+                    Arguments = $"--model_name \"{_modelName}\" --speaker_idx {speakerToUse}{speedArg} --text \"{escapedText}\" --out_path \"{tempWavPath}\"",
                     UseShellExecute = false,
                     CreateNoWindow = true,
                     RedirectStandardOutput = true,

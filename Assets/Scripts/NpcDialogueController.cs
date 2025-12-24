@@ -66,7 +66,7 @@ namespace Grommel
             _promptBuilder = CreatePromptBuilder();
             _llmProvider = CreateLlmProvider(_promptBuilder);
             _addressablesLoader = CreateAddressablesLoader();
-            _activeCharsPerSecond = _charsPerSecond / (_ttsProvider?.LengthScale ?? 1f);
+            _activeCharsPerSecond = _charsPerSecond * 1f;
             _ = LoadPersonasAsync();
         }
 
@@ -150,8 +150,9 @@ namespace Grommel
             _visibleCharCount = 0;
             _revealTimer = 0f;
             _holdNpcTextUntilAudioReady = true;
-            // Align text reveal speed with Piper length scale: slower audio -> slower text reveal.
-            _activeCharsPerSecond = _charsPerSecond / (_ttsProvider?.LengthScale ?? 1f);
+            // Align text reveal speed with persona speech rate: higher rate -> faster text reveal.
+            float speechRate = Mathf.Max(0.01f, _activePersona?.speechRate ?? 1f);
+            _activeCharsPerSecond = _charsPerSecond * speechRate;
 
             string historyText = string.Join("\n", _history);
             var dialogueService = new NpcDialogueService(_llmProvider, _promptBuilder);
@@ -200,7 +201,7 @@ namespace Grommel
                 return;
             }
 
-        var clip = await _ttsProvider.GenerateClipAsync(text, _activePersona?.speakerId);
+        var clip = await _ttsProvider.GenerateClipAsync(text, _activePersona?.speakerId, _activePersona?.speechRate);
             _pendingClip = clip;
             _pendingPlayClip = clip != null;
             _holdNpcTextUntilAudioReady = false;
@@ -259,6 +260,8 @@ namespace Grommel
             {
                 await _npcView.SetPersonaAsync(_activePersona);
             }
+            float speechRate = Mathf.Max(0.01f, _activePersona?.speechRate ?? 1f);
+            _activeCharsPerSecond = _charsPerSecond * speechRate;
         }
 
         IAddressablesLoader CreateAddressablesLoader()
