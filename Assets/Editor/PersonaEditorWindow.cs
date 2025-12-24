@@ -16,6 +16,8 @@ namespace Grommel.EditorTools
 
         Vector2 _listScroll;
         Vector2 _detailScroll;
+        Vector2 _personaScroll;
+        Dictionary<string, Texture2D> _thumbCache = new Dictionary<string, Texture2D>();
         List<PersonaEntry> _personas = new List<PersonaEntry>();
         int _selectedIndex = -1;
         string _status = string.Empty;
@@ -70,9 +72,8 @@ namespace Grommel.EditorTools
             {
                 var p = _personas[i];
                 EditorGUILayout.BeginHorizontal("box");
-                // preview thumbnail
-                Texture2D thumb = (i == _selectedIndex) ? _previewTexture : null;
                 float thumbSize = 48f;
+                var thumb = GetThumbnail(p);
                 if (thumb != null)
                 {
                     GUILayout.Label(thumb, GUILayout.Width(thumbSize), GUILayout.Height(thumbSize));
@@ -83,7 +84,13 @@ namespace Grommel.EditorTools
                 }
 
                 string label = string.IsNullOrEmpty(p.displayName) ? p.characterId : p.displayName;
-                if (GUILayout.Button(label, GUILayout.ExpandWidth(true), GUILayout.Height(thumbSize)))
+                var buttonStyle = new GUIStyle(GUI.skin.button);
+                if (i == _selectedIndex)
+                {
+                    buttonStyle.normal.textColor = Color.white;
+                    buttonStyle.normal.background = Texture2D.grayTexture;
+                }
+                if (GUILayout.Button(label, buttonStyle, GUILayout.ExpandWidth(true), GUILayout.Height(thumbSize)))
                 {
                     _selectedIndex = i;
                     _ = LoadPreviewAsync();
@@ -107,12 +114,33 @@ namespace Grommel.EditorTools
 
             var p = _personas[_selectedIndex];
             _detailScroll = EditorGUILayout.BeginScrollView(_detailScroll);
-            p.characterId = EditorGUILayout.TextField("Character Id", p.characterId);
-            p.displayName = EditorGUILayout.TextField("Display Name", p.displayName);
-            p.speakerId = EditorGUILayout.TextField("Speaker Id", p.speakerId);
+            float labelWidth = 100f;
+            float fieldWidth = Mathf.Min(position.width - 300f, 400f);
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField("Character Id", GUILayout.Width(labelWidth));
+            p.characterId = EditorGUILayout.TextField(p.characterId, GUILayout.Width(fieldWidth));
+            EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField("Display Name", GUILayout.Width(labelWidth));
+            p.displayName = EditorGUILayout.TextField(p.displayName, GUILayout.Width(fieldWidth));
+            EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField("Speaker Id", GUILayout.Width(labelWidth));
+            p.speakerId = EditorGUILayout.TextField(p.speakerId, GUILayout.Width(fieldWidth));
+            EditorGUILayout.EndHorizontal();
+
             EditorGUILayout.LabelField("Persona", EditorStyles.label);
-            p.persona = EditorGUILayout.TextArea(p.persona, GUILayout.Height(150));
-            p.imagePath = EditorGUILayout.TextField("Image Path", p.imagePath);
+            var wrapStyle = new GUIStyle(EditorStyles.textArea) { wordWrap = true };
+            _personaScroll = EditorGUILayout.BeginScrollView(_personaScroll, GUILayout.Height(160), GUILayout.Width(fieldWidth + labelWidth));
+            p.persona = EditorGUILayout.TextArea(p.persona, wrapStyle, GUILayout.ExpandHeight(true), GUILayout.ExpandWidth(true));
+            EditorGUILayout.EndScrollView();
+
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField("Image Path", GUILayout.Width(labelWidth));
+            p.imagePath = EditorGUILayout.TextField(p.imagePath, GUILayout.Width(fieldWidth));
+            EditorGUILayout.EndHorizontal();
             if (_previewTexture != null)
             {
                 float size = 120f;
@@ -142,6 +170,7 @@ namespace Grommel.EditorTools
             _selectedIndex = -1;
             _status = string.Empty;
             _previewTexture = null;
+            _thumbCache.Clear();
 
             if (!File.Exists(PersonasAddressablePath))
             {
@@ -230,15 +259,48 @@ namespace Grommel.EditorTools
 
             try
             {
-                var handle = UnityAddressables.LoadAssetAsync<Texture2D>(p.imagePath);
-                _previewTexture = await handle.Task;
-                UnityAddressables.Release(handle);
+                _previewTexture = GetThumbnail(p);
+                if (_previewTexture == null)
+                {
+                    var handle = UnityAddressables.LoadAssetAsync<Texture2D>(p.imagePath);
+                    _previewTexture = await handle.Task;
+                    UnityAddressables.Release(handle);
+                    if (_previewTexture != null)
+                    {
+                        _thumbCache[NormalizePath(p.imagePath)] = _previewTexture;
+                    }
+                }
             }
             catch
             {
                 _previewTexture = null;
             }
             Repaint();
+        }
+
+        Texture2D GetThumbnail(PersonaEntry p)
+        {
+            if (p == null || string.IsNullOrWhiteSpace(p.imagePath))
+            {
+                return null;
+            }
+            string key = NormalizePath(p.imagePath);
+            if (_thumbCache.TryGetValue(key, out var tex))
+            {
+                return tex;
+            }
+            var assetPath = key.StartsWith("Assets/") ? key : $"Assets/{key}";
+            var loaded = AssetDatabase.LoadAssetAtPath<Texture2D>(assetPath);
+            if (loaded != null)
+            {
+                _thumbCache[key] = loaded;
+            }
+            return loaded;
+        }
+
+        string NormalizePath(string path)
+        {
+            return path.Replace("\\", "/");
         }
     }
 }
