@@ -1,11 +1,17 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Grommel.Tts;
+using Grommel.Llm;
+using Grommel.Personas;
+using Grommel.Addressables;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 
+namespace Grommel
+{
 public class NpcDialogueController : MonoBehaviour
 {
     [SerializeField] TMP_InputField _playerInput;
@@ -46,6 +52,7 @@ public class NpcDialogueController : MonoBehaviour
     bool _pendingFirstTokenStop;
     ITtsProvider _ttsProvider;
     ILlmProvider _llmProvider;
+    IAddressablesLoader _addressablesLoader;
     IPromptBuilder _promptBuilder;
 
     void Awake()
@@ -57,9 +64,9 @@ public class NpcDialogueController : MonoBehaviour
         _ttsProvider = CreateTtsProvider();
         _promptBuilder = CreatePromptBuilder();
         _llmProvider = CreateLlmProvider(_promptBuilder);
-        _personaRepo = CreatePersonaRepository();
-        _activePersona = _personaRepo.Get(_personaKey);
+        _addressablesLoader = CreateAddressablesLoader();
         _activeCharsPerSecond = _charsPerSecond / (_ttsProvider?.LengthScale ?? 1f);
+        _ = LoadPersonasAsync();
     }
 
     void OnDestroy()
@@ -221,9 +228,19 @@ public class NpcDialogueController : MonoBehaviour
 
     PersonaRepository CreatePersonaRepository()
     {
-        string projectRoot = System.IO.Path.GetFullPath(System.IO.Path.Combine(Application.dataPath, ".."));
-        string personasPath = System.IO.Path.Combine(projectRoot, "Assets/Data/personas.json");
-        return new PersonaRepository(personasPath);
+        return new PersonaRepository("Addressables/Data/personas.json", _addressablesLoader);
+    }
+
+    async Task LoadPersonasAsync()
+    {
+        _personaRepo = CreatePersonaRepository();
+        await _personaRepo.LoadAsync();
+        _activePersona = _personaRepo.Get(_personaKey);
+    }
+
+    IAddressablesLoader CreateAddressablesLoader()
+    {
+        return new AddressablesLoader();
     }
 
     private void EnsureNpcScrollContainer()
@@ -397,4 +414,5 @@ public class NpcDialogueController : MonoBehaviour
             yield return new WaitForSeconds(0.3f);
         }
     }
+}
 }

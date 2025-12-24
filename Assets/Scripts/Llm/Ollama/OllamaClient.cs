@@ -4,138 +4,141 @@ using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 
-public class OllamaClient
+namespace Grommel.Llm
 {
-    readonly HttpClient _client;
-    readonly string _baseUrl;
-
-    public OllamaClient(string baseUrl = "http://localhost:11434")
+    public class OllamaClient
     {
-        _client = new HttpClient();
-        _baseUrl = baseUrl.TrimEnd('/');
-    }
+        readonly HttpClient _client;
+        readonly string _baseUrl;
 
-    class GenerateRequest
-    {
-        public string model;
-        public string prompt;
-        public bool stream;
-    }
-
-    class GenerateResponse
-    {
-        public string response;
-        public bool done;
-    }
-
-    public async Task<string> GenerateAsync(string model, string prompt)
-    {
-        var request = new GenerateRequest
+        public OllamaClient(string baseUrl = "http://localhost:11434")
         {
-            model = model,
-            prompt = prompt,
-            stream = false
-        };
+            _client = new HttpClient();
+            _baseUrl = baseUrl.TrimEnd('/');
+        }
 
-        string json = JsonUtility.ToJson(request);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-        var httpResponse = await _client.PostAsync($"{_baseUrl}/api/generate", content);
-        string body = await httpResponse.Content.ReadAsStringAsync();
-
-        var response = JsonUtility.FromJson<GenerateResponse>(body);
-        return response != null ? response.response : string.Empty;
-    }
-
-    public async Task<string> GenerateStreamAsync(string model, string prompt, System.Action<string> onDelta)
-    {
-        var request = new GenerateRequest
+        class GenerateRequest
         {
-            model = model,
-            prompt = prompt,
-            stream = true
-        };
+            public string model;
+            public string prompt;
+            public bool stream;
+        }
 
-        string json = JsonUtility.ToJson(request);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, $"{_baseUrl}/api/generate")
+        class GenerateResponse
         {
-            Content = content
-        };
+            public string response;
+            public bool done;
+        }
 
-        var httpResponse = await _client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead);
-        using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-        using var reader = new System.IO.StreamReader(responseStream, Encoding.UTF8);
-
-        var sb = new StringBuilder();
-        var buffer = new char[2048];
-        var leftover = new StringBuilder();
-
-        bool done = false;
-
-        while (!done)
+        public async Task<string> GenerateAsync(string model, string prompt)
         {
-            int read = await reader.ReadAsync(buffer, 0, buffer.Length);
-            if (read <= 0)
+            var request = new GenerateRequest
             {
-                break;
-            }
+                model = model,
+                prompt = prompt,
+                stream = false
+            };
 
-            leftover.Append(buffer, 0, read);
-            string combined = leftover.ToString();
-            int lastNewline = combined.LastIndexOf('\n');
+            string json = JsonUtility.ToJson(request);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            if (lastNewline >= 0)
+            var httpResponse = await _client.PostAsync($"{_baseUrl}/api/generate", content);
+            string body = await httpResponse.Content.ReadAsStringAsync();
+
+            var response = JsonUtility.FromJson<GenerateResponse>(body);
+            return response != null ? response.response : string.Empty;
+        }
+
+        public async Task<string> GenerateStreamAsync(string model, string prompt, System.Action<string> onDelta)
+        {
+            var request = new GenerateRequest
             {
-                string[] lines = combined.Split('\n');
-                // Keep the last fragment (could be partial)
-                leftover.Length = 0;
-                leftover.Append(lines[lines.Length - 1]);
+                model = model,
+                prompt = prompt,
+                stream = true
+            };
 
-                for (int i = 0; i < lines.Length - 1; i++)
+            string json = JsonUtility.ToJson(request);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            using var httpRequest = new HttpRequestMessage(HttpMethod.Post, $"{_baseUrl}/api/generate")
+            {
+                Content = content
+            };
+
+            var httpResponse = await _client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead);
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            using var reader = new System.IO.StreamReader(responseStream, Encoding.UTF8);
+
+            var sb = new StringBuilder();
+            var buffer = new char[2048];
+            var leftover = new StringBuilder();
+
+            bool done = false;
+
+            while (!done)
+            {
+                int read = await reader.ReadAsync(buffer, 0, buffer.Length);
+                if (read <= 0)
                 {
-                    done = ProcessLine(lines[i], sb, onDelta);
-                    if (done)
+                    break;
+                }
+
+                leftover.Append(buffer, 0, read);
+                string combined = leftover.ToString();
+                int lastNewline = combined.LastIndexOf('\n');
+
+                if (lastNewline >= 0)
+                {
+                    string[] lines = combined.Split('\n');
+                    // Keep the last fragment (could be partial)
+                    leftover.Length = 0;
+                    leftover.Append(lines[lines.Length - 1]);
+
+                    for (int i = 0; i < lines.Length - 1; i++)
                     {
-                        break;
+                        done = ProcessLine(lines[i], sb, onDelta);
+                        if (done)
+                        {
+                            break;
+                        }
                     }
                 }
             }
+
+            // Process any remaining fragment
+            if (!done && leftover.Length > 0)
+            {
+                ProcessLine(leftover.ToString(), sb, onDelta);
+            }
+
+            return sb.ToString();
         }
 
-        // Process any remaining fragment
-        if (!done && leftover.Length > 0)
+        bool ProcessLine(string line, StringBuilder aggregate, System.Action<string> onDelta)
         {
-            ProcessLine(leftover.ToString(), sb, onDelta);
-        }
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                return false;
+            }
 
-        return sb.ToString();
-    }
+            GenerateResponse delta;
+            try
+            {
+                delta = JsonUtility.FromJson<GenerateResponse>(line);
+            }
+            catch (System.Exception)
+            {
+                return false; // skip malformed lines
+            }
 
-    static bool ProcessLine(string line, StringBuilder aggregate, System.Action<string> onDelta)
-    {
-        if (string.IsNullOrWhiteSpace(line))
-        {
-            return false;
-        }
+            if (delta != null && !string.IsNullOrEmpty(delta.response))
+            {
+                aggregate.Append(delta.response);
+                onDelta?.Invoke(aggregate.ToString());
+            }
 
-        GenerateResponse delta;
-        try
-        {
-            delta = JsonUtility.FromJson<GenerateResponse>(line);
+            return delta != null && delta.done;
         }
-        catch (System.Exception)
-        {
-            return false; // skip malformed lines
-        }
-
-        if (delta != null && !string.IsNullOrEmpty(delta.response))
-        {
-            aggregate.Append(delta.response);
-            onDelta?.Invoke(aggregate.ToString());
-        }
-
-        return delta != null && delta.done;
     }
 }

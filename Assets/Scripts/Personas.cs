@@ -1,35 +1,47 @@
 using System.Collections.Generic;
-using System.IO;
+using System.Threading.Tasks;
+using Grommel.Addressables;
 using Newtonsoft.Json;
 using UnityEngine;
 
-public class PersonaEntry
+namespace Grommel.Personas
 {
-    public string name;
-    public string persona;
-}
-
-public class PersonaConfig
-{
-    public Dictionary<string, PersonaEntry> entries;
-}
-
-public class PersonaRepository
-{
-    readonly Dictionary<string, PersonaEntry> _personas;
-    readonly PersonaEntry _default;
-
-    public PersonaRepository(string configPath)
+    public class PersonaEntry
     {
-        _personas = new Dictionary<string, PersonaEntry>();
-        _default = new PersonaEntry { name = "NPC", persona = "You are an NPC." };
+        public string name;
+        public string persona;
+    }
 
-        if (File.Exists(configPath))
+    public class PersonaConfig
+    {
+        public Dictionary<string, PersonaEntry> entries;
+    }
+
+    public class PersonaRepository
+    {
+        Dictionary<string, PersonaEntry> _personas = new Dictionary<string, PersonaEntry>();
+        PersonaEntry _default = new PersonaEntry { name = "NPC", persona = "You are an NPC." };
+        readonly string _addressableKey;
+        readonly IAddressablesLoader _loader;
+
+        public PersonaRepository(string addressableKey, IAddressablesLoader loader)
+        {
+            _addressableKey = addressableKey;
+            _loader = loader;
+        }
+
+        public async Task LoadAsync()
         {
             try
             {
-                var json = File.ReadAllText(configPath);
-                var cfg = JsonConvert.DeserializeObject<PersonaConfig>(json);
+                TextAsset asset = await _loader.LoadAssetAsync<TextAsset>(_addressableKey);
+                if (asset == null || string.IsNullOrWhiteSpace(asset.text))
+                {
+                    Debug.LogWarning($"Persona asset '{_addressableKey}' not found or empty, using default.");
+                    return;
+                }
+
+                var cfg = JsonConvert.DeserializeObject<PersonaConfig>(asset.text);
                 if (cfg?.entries != null)
                 {
                     _personas = cfg.entries;
@@ -41,21 +53,17 @@ public class PersonaRepository
             }
             catch (System.Exception ex)
             {
-                Debug.LogError($"Failed to load personas from {configPath}: {ex.Message}");
+                Debug.LogError($"Failed to load personas from '{_addressableKey}': {ex.Message}");
             }
         }
-        else
-        {
-            Debug.LogWarning($"Persona config not found at {configPath}, using default.");
-        }
-    }
 
-    public PersonaEntry Get(string key)
-    {
-        if (string.IsNullOrWhiteSpace(key))
+        public PersonaEntry Get(string key)
         {
-            return _default;
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                return _default;
+            }
+            return _personas.TryGetValue(key, out var p) ? p : _default;
         }
-        return _personas.TryGetValue(key, out var p) ? p : _default;
     }
 }

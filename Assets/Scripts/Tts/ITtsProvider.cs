@@ -1,18 +1,21 @@
 using System.Threading.Tasks;
 using UnityEngine;
 
-/// <summary>
-/// Abstraction for text-to-speech providers.
-/// </summary>
-public interface ITtsProvider
+namespace Grommel.Tts
 {
-    float LengthScale { get; }
-    Task<AudioClip> GenerateClipAsync(string text);
-}
+    /// <summary>
+    /// Abstraction for text-to-speech providers.
+    /// </summary>
+    public interface ITtsProvider
+    {
+        float LengthScale { get; }
+        Task<AudioClip> GenerateClipAsync(string text);
+    }
 
-public enum TtsProviderKind
-{
-    Piper,
-    Coqui,
-    Mac
+    public enum TtsProviderKind
+    {
+        Piper,
+        Coqui,
+        Mac
+    }
 }

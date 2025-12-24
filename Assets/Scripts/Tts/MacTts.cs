@@ -1,47 +1,44 @@
 using System.Diagnostics;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Grommel.Tts;
 using UnityEngine;
 
-public class MacTts : ITtsProvider
+namespace Grommel.Tts
 {
-    readonly string _voice;
-    readonly int _rate;
-
-    public float LengthScale => 1f; // macOS "say" rate is explicit; we keep text speed unchanged.
-
-    public MacTts(string voice = "Whisper", int rate = 200)
+    public class MacTts : ITtsProvider
     {
-        _voice = voice;
-        _rate = rate;
-    }
+        readonly string _voice;
+        readonly int _rate;
 
-    public Task<AudioClip> GenerateClipAsync(string text)
-    {
-        Speak(text);
-        return Task.FromResult<AudioClip>(null);
-    }
+        public float LengthScale => 1f; // macOS "say" rate is explicit; we keep text speed unchanged.
 
-    void Speak(string text)
-    {
-        if (string.IsNullOrWhiteSpace(text))
+        public MacTts(string voice = "Whisper", int rate = 200)
         {
-            return;
+            _voice = voice;
+            _rate = rate;
         }
 
-        string ttsText = PrepareForTts(text);
-        string escaped = "\"" + ttsText.Replace("\"", "\\\"") + "\"";
+        public Task<AudioClip> GenerateClipAsync(string text)
+        {
+            Speak(text);
+            return Task.FromResult<AudioClip>(null);
+        }
 
-        var p = new Process();
-        p.StartInfo.FileName = "/usr/bin/say";
-        p.StartInfo.Arguments = $"-v {_voice} -r {_rate} " + escaped;
-        p.StartInfo.UseShellExecute = false;
-        p.StartInfo.CreateNoWindow = true;
-        p.Start();
-    }
+        void Speak(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return;
+            }
 
-    static string PrepareForTts(string text)
-    {
-        return Regex.Replace(text, "(?i)\\bkranust\\b", "Krahnust");
+            string escaped = "\"" + text.Replace("\"", "\\\"") + "\"";
+
+            var p = new Process();
+            p.StartInfo.FileName = "/usr/bin/say";
+            p.StartInfo.Arguments = $"-v {_voice} -r {_rate} " + escaped;
+            p.StartInfo.UseShellExecute = false;
+            p.StartInfo.CreateNoWindow = true;
+            p.Start();
+        }
     }
 }

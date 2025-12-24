@@ -1,14 +1,17 @@
 using System.Threading.Tasks;
 
-/// <summary>
-/// Abstraction for large language model providers.
-/// </summary>
-public interface ILlmProvider
+namespace Grommel.Llm
 {
-    Task<string> GetReplyAsync(string npcName, string npcPersona, string history, string playerLine);
-}
+    /// <summary>
+    /// Abstraction for large language model providers.
+    /// </summary>
+    public interface ILlmProvider
+    {
+        Task<string> GetReplyAsync(string npcName, string npcPersona, string history, string playerLine);
+    }
 
-public enum LlmProviderKind
-{
-    Ollama
+    public enum LlmProviderKind
+    {
+        Ollama
+    }
 }

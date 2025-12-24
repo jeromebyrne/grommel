@@ -842,7 +842,10 @@ MonoBehaviour:
   _sendButton: {fileID: 1637356996}
   _npcAudio: {fileID: 1736422325}
   _charsPerSecond: 40
+  _ttsProviderKind: 0
+  _llmProviderKind: 0
   _thinkingBaseText: Thinking
+  _personaKey: default
 --- !u!4 &1166675083
 Transform:
   m_ObjectHideFlags: 0
