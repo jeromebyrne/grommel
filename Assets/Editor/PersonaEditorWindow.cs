@@ -202,6 +202,7 @@ namespace Grommel.EditorTools
                     }
                     _status = $"Loaded {_personas.Count} personas.";
                     _ = LoadPreviewAsync();
+                    _ = LoadAllThumbnailsAsync();
                 }
             }
             catch (System.Exception ex)
@@ -234,6 +235,7 @@ namespace Grommel.EditorTools
                 AssetDatabase.ImportAsset(PersonasAddressablePath);
                 _status = "Saved personas.";
                 _ = LoadPreviewAsync();
+                _ = LoadAllThumbnailsAsync();
             }
             catch (System.Exception ex)
             {
@@ -301,6 +303,34 @@ namespace Grommel.EditorTools
         string NormalizePath(string path)
         {
             return path.Replace("\\", "/");
+        }
+
+        async Task LoadAllThumbnailsAsync()
+        {
+            foreach (var p in _personas)
+            {
+                if (p == null || string.IsNullOrWhiteSpace(p.imagePath))
+                {
+                    continue;
+                }
+                string key = NormalizePath(p.imagePath);
+                if (_thumbCache.ContainsKey(key))
+                {
+                    continue;
+                }
+                try
+                {
+                    var handle = UnityAddressables.LoadAssetAsync<Texture2D>(p.imagePath);
+                    var tex = await handle.Task;
+                    UnityAddressables.Release(handle);
+                    if (tex != null)
+                    {
+                        _thumbCache[key] = tex;
+                    }
+                }
+                catch { }
+            }
+            Repaint();
         }
     }
 }
