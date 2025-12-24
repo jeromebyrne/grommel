@@ -34,6 +34,12 @@ public class CoquiTts : ITtsProvider
             return null;
         }
 
+        if (!File.Exists(_ttsExecutable))
+        {
+            UnityEngine.Debug.LogError($"Coqui TTS executable not found at '{_ttsExecutable}'. Update the path in CoquiTts.");
+            return null;
+        }
+
         string tempWavPath = Path.Combine(Application.temporaryCachePath, "npc_coqui.wav");
         string escapedText = text.Replace("\"", "\\\"");
 
