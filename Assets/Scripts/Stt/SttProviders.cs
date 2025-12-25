@@ -18,4 +18,17 @@ namespace Grommel.Stt
         public Task<string> TranscribeAsync(AudioClip clip) => _impl.TranscribeAsync(clip);
         public Task<string> TranscribeAsync(string wavPath) => _impl.TranscribeAsync(wavPath);
     }
+
+    public class WhisperSttProvider : ISttProvider
+    {
+        readonly WhisperStt _impl;
+
+        public WhisperSttProvider(string whisperExecutable, string modelPath, string language = "")
+        {
+            _impl = new WhisperStt(whisperExecutable, modelPath, language);
+        }
+
+        public Task<string> TranscribeAsync(AudioClip clip) => _impl.TranscribeAsync(clip);
+        public Task<string> TranscribeAsync(string wavPath) => _impl.TranscribeAsync(wavPath);
+    }
 }

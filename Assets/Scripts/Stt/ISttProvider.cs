@@ -21,7 +21,8 @@ namespace Grommel.Stt
 
     public enum SttProviderKind
     {
-        Mac
-        // Future: Whisper, Vosk, Azure, etc.
+        Mac,
+        Whisper
+        // Future: Vosk, Azure, etc.
     }
 }

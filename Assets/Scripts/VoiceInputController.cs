@@ -16,6 +16,9 @@ namespace Grommel
         [SerializeField] SttProviderKind _sttProviderKind = SttProviderKind.Mac;
         [SerializeField] string _macSttCommand = ""; // optional override; leave empty to use Tools/stt_mac relative to project
         [SerializeField] string _macSttArgs = "{0}";  // format string with {0} = wav path
+        [SerializeField] string _whisperCommand = ""; // optional override; leave empty to use Tools/whisper.cpp/main relative to project
+        [SerializeField] string _whisperModel = "";   // optional override; leave empty to use Tools/models/ggml-small.en.bin
+        [SerializeField] string _whisperLanguage = "en";
         [SerializeField] int _maxRecordSeconds = 15;
         [SerializeField] int _sampleRate = 16000;
 
@@ -36,6 +39,8 @@ namespace Grommel
                 case SttProviderKind.Mac:
                 default:
                     return new MacSttProvider(ResolveMacSttPath(), _macSttArgs);
+                case SttProviderKind.Whisper:
+                    return new WhisperSttProvider(ResolveWhisperPath(), ResolveWhisperModel(), _whisperLanguage);
             }
         }
 
@@ -49,6 +54,26 @@ namespace Grommel
             string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
             string defaultPath = Path.Combine(projectRoot, "Tools", "stt_mac");
             return defaultPath;
+        }
+
+        string ResolveWhisperPath()
+        {
+            if (!string.IsNullOrWhiteSpace(_whisperCommand))
+            {
+                return _whisperCommand;
+            }
+            string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+            return Path.Combine(projectRoot, "Tools", "whisper.cpp", "main");
+        }
+
+        string ResolveWhisperModel()
+        {
+            if (!string.IsNullOrWhiteSpace(_whisperModel))
+            {
+                return _whisperModel;
+            }
+            string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+            return Path.Combine(projectRoot, "Tools", "models", "ggml-small.en.bin");
         }
 
         public void StartRecording()

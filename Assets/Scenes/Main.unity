@@ -633,10 +633,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Grommel.VoiceInputController
   _dialogue: {fileID: 1166675082}
-  _sttProviderKind: 0
-  _macSttCommand: 
-  _macSttArgs: '{0}'
-  _maxRecordSeconds: 15
+  _sttProviderKind: 1
+  _maxRecordSeconds: 5
   _sampleRate: 16000
 --- !u!4 &1113617405
 Transform:
@@ -682,7 +680,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a7cedca2c1fe04dd493c0dbd42d51af2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NpcDialogueController
-  _playerInput: {fileID: 0}
   _npcOutput: {fileID: 1101277454}
   _recordButton: {fileID: 1637356996}
   _npcAudio: {fileID: 1736422325}
@@ -692,6 +689,7 @@ MonoBehaviour:
   _thinkingBaseText: Thinking
   _personaKey: fenwick
   _npcView: {fileID: 622825587}
+  _voiceInput: {fileID: 1113617404}
 --- !u!4 &1166675083
 Transform:
   m_ObjectHideFlags: 0
