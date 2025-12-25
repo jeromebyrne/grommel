@@ -20,6 +20,7 @@ namespace Grommel
         [SerializeField] TextMeshProUGUI _npcOutput;
         [SerializeField] Button _recordButton;
         [SerializeField] AudioSource _npcAudio;
+        [SerializeField] TextMeshProUGUI _statusLabel;
         [SerializeField] float _charsPerSecond = 40f;
         [SerializeField] TtsProviderKind _ttsProviderKind = TtsProviderKind.Piper;
         [SerializeField] LlmProviderKind _llmProviderKind = LlmProviderKind.Ollama;
@@ -113,6 +114,7 @@ namespace Grommel
             {
                 return;
             }
+            SetStatus("Recording...");
             _voiceInput.StartRecording();
             _recordingFromButton = true;
             SetRecordButtonColor(Color.green);
@@ -124,6 +126,7 @@ namespace Grommel
             {
                 return;
             }
+            SetStatus("Transcribing...");
             _voiceInput.StopAndTranscribe();
             _recordingFromButton = false;
             SetRecordButtonColor(Color.white);
@@ -139,6 +142,14 @@ namespace Grommel
             colors.normalColor = color;
             colors.highlightedColor = color;
             _recordButton.colors = colors;
+        }
+
+        void SetStatus(string text)
+        {
+            if (_statusLabel != null)
+            {
+                _statusLabel.text = text;
+            }
         }
 
         // Input field no longer accepts manual input; OnSubmitInput unused.
@@ -205,6 +216,7 @@ namespace Grommel
             {
                 _recordButton.interactable = false;
             }
+            SetStatus("Thinking...");
 
             _npcOutput.text = string.Empty;
             RefreshNpcScrollContentHeight();
@@ -257,6 +269,7 @@ namespace Grommel
             }
             _recordingFromButton = false;
             _isBusy = false;
+            SetStatus("Ready");
         }
 
         private void OnNpcTextDelta(string text)
@@ -265,6 +278,7 @@ namespace Grommel
             {
                 _pendingFirstTokenStop = true; // will stop on main thread
             }
+            SetStatus("Responding...");
 
             // Track the delta length even though we're no longer splitting sentences.
             _lastNpcTextLength = text.Length;
@@ -477,12 +491,25 @@ namespace Grommel
         {
             if (_pendingClip == null || _npcAudio == null)
             {
+                SetStatus("Ready");
                 return;
             }
 
             _npcAudio.clip = _pendingClip;
             _npcAudio.Play();
+            SetStatus("Speaking...");
+            StartCoroutine(WaitForAudioEnd(_npcAudio.clip.length));
             _pendingClip = null;
+        }
+
+        System.Collections.IEnumerator WaitForAudioEnd(float length)
+        {
+            yield return new WaitForSeconds(length + 0.1f);
+            SetStatus("Ready");
+            if (!_isBusy && _recordButton != null)
+            {
+                _recordButton.interactable = true;
+            }
         }
 
         private void StartThinkingAnimation()
@@ -504,6 +531,7 @@ namespace Grommel
                 StopCoroutine(_thinkingCoroutine);
                 _thinkingCoroutine = null;
             }
+            SetStatus("Responding...");
         }
 
         private System.Collections.IEnumerator ThinkingRoutine()
