@@ -34,6 +34,7 @@ namespace Grommel.Personas
         Dictionary<string, PersonaEntry> _personas = new Dictionary<string, PersonaEntry>();
         readonly string _addressableKey;
         readonly IAddressablesLoader _loader;
+        const string DialogDirections = "Do not use stage directions, sound effects, or actions such as laughing, coughing, or sighing. Do not use interjections such as hmm, ah, oh, or heh. Do not use symbols, emojis, or markdown. Respond naturally as spoken dialogue only. Responses should be concise.";
 
         public PersonaRepository(string addressableKey, IAddressablesLoader loader)
         {
@@ -65,6 +66,7 @@ namespace Grommel.Personas
                             {
                                 entry.speechRate = 1f;
                             }
+                            entry.persona = AppendDirections(entry.persona);
                             _personas[entry.characterId.ToLowerInvariant()] = entry;
                         }
                     }
@@ -97,6 +99,19 @@ namespace Grommel.Personas
 
             Debug.LogError($"Persona '{key}' not found in repository.");
             return null;
+        }
+
+        string AppendDirections(string personaText)
+        {
+            if (string.IsNullOrWhiteSpace(personaText))
+            {
+                return DialogDirections;
+            }
+            if (personaText.Contains(DialogDirections))
+            {
+                return personaText;
+            }
+            return personaText.TrimEnd() + " " + DialogDirections;
         }
     }
 }

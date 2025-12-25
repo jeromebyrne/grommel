@@ -10,13 +10,14 @@ using UnityAddressables = UnityEngine.AddressableAssets.Addressables;
 
 namespace Grommel.EditorTools
 {
-        public class PersonaEditorWindow : EditorWindow
-        {
-            const string PersonasAddressablePath = "Assets/Addressables/Data/personas.json";
+    public class PersonaEditorWindow : EditorWindow
+    {
+        const string PersonasAddressablePath = "Assets/Addressables/Data/personas.json";
+        const string LastPersonaPrefKey = "Grommel.PersonaEditor.LastPersonaId";
 
-            Vector2 _listScroll;
-            Vector2 _detailScroll;
-            Vector2 _personaScroll;
+        Vector2 _listScroll;
+        Vector2 _detailScroll;
+        Vector2 _personaScroll;
             Dictionary<string, Texture2D> _thumbCache = new Dictionary<string, Texture2D>();
             List<PersonaEntry> _personas = new List<PersonaEntry>();
             int _selectedIndex = -1;
@@ -29,7 +30,7 @@ namespace Grommel.EditorTools
             [MenuItem("Grommel/Persona Editor")]
             public static void Open()
             {
-                var window = GetWindow<PersonaEditorWindow>("Persona Editor");
+            var window = GetWindow<PersonaEditorWindow>("Persona Editor");
             window.minSize = new Vector2(700, 400);
             window.Refresh();
         }
@@ -116,7 +117,12 @@ namespace Grommel.EditorTools
                 if (GUILayout.Button(label, buttonStyle, GUILayout.ExpandWidth(true), GUILayout.Height(thumbSize)))
                 {
                     _selectedIndex = i;
+                    GUI.FocusControl(null); // clear focus so text areas refresh correctly
+                    _personaScroll = Vector2.zero;
+                    _detailScroll = Vector2.zero;
+                    SaveLastSelected();
                     _ = LoadPreviewAsync();
+                    Repaint();
                 }
                 EditorGUILayout.EndHorizontal();
             }
@@ -161,7 +167,9 @@ namespace Grommel.EditorTools
 
             EditorGUILayout.LabelField("Persona", EditorStyles.label);
             var wrapStyle = new GUIStyle(EditorStyles.textArea) { wordWrap = true };
-            _personaScroll = EditorGUILayout.BeginScrollView(_personaScroll, GUILayout.Height(160), GUILayout.Width(fieldWidth + labelWidth));
+            float personaHeight = 320f; // doubled from 160
+            float personaWidth = (fieldWidth + labelWidth) * 1.25f;
+            _personaScroll = EditorGUILayout.BeginScrollView(_personaScroll, GUILayout.Height(personaHeight), GUILayout.Width(personaWidth));
             p.persona = EditorGUILayout.TextArea(p.persona, wrapStyle, GUILayout.ExpandHeight(true), GUILayout.ExpandWidth(true));
             EditorGUILayout.EndScrollView();
 
@@ -184,13 +192,14 @@ namespace Grommel.EditorTools
             {
                 characterId = "new_character",
                 displayName = "New Character",
-                persona = "Describe this character...",
+                persona = "Describe this character... Do not use stage directions, sound effects, or actions such as laughing, coughing, or sighing. Do not use interjections such as hmm, ah, oh, or heh. Do not use symbols, emojis, or markdown. Respond naturally as spoken dialogue only. Responses should be concise.",
                 imagePath = string.Empty,
                 speechRate = 1f
             };
             _personas.Add(entry);
             _selectedIndex = _personas.Count - 1;
             _status = "Added new persona. Remember to Save.";
+            SaveLastSelected();
         }
 
         void Refresh()
@@ -226,13 +235,13 @@ namespace Grommel.EditorTools
                         }
                     }
                     if (_personas.Count > 0)
-                    {
-                        _selectedIndex = 0;
-                    }
-                    _status = $"Loaded {_personas.Count} personas.";
-                    _ = LoadPreviewAsync();
-                    _ = LoadAllThumbnailsAsync();
+                {
+                    RestoreLastSelected();
                 }
+                _status = $"Loaded {_personas.Count} personas.";
+                _ = LoadPreviewAsync();
+                _ = LoadAllThumbnailsAsync();
+            }
             }
             catch (System.Exception ex)
             {
@@ -265,6 +274,7 @@ namespace Grommel.EditorTools
                 _status = "Saved personas.";
                 _lastSaveSucceeded = true;
                 _lastSaveTime = EditorApplication.timeSinceStartup;
+                SaveLastSelected();
                 _ = LoadPreviewAsync();
                 _ = LoadAllThumbnailsAsync();
             }
@@ -363,6 +373,35 @@ namespace Grommel.EditorTools
                 catch { }
             }
             Repaint();
+        }
+
+        void SaveLastSelected()
+        {
+            if (_selectedIndex >= 0 && _selectedIndex < _personas.Count)
+            {
+                var id = _personas[_selectedIndex]?.characterId;
+                if (!string.IsNullOrWhiteSpace(id))
+                {
+                    EditorPrefs.SetString(LastPersonaPrefKey, id);
+                }
+            }
+        }
+
+        void RestoreLastSelected()
+        {
+            string lastId = EditorPrefs.GetString(LastPersonaPrefKey, string.Empty);
+            if (!string.IsNullOrWhiteSpace(lastId))
+            {
+                for (int i = 0; i < _personas.Count; i++)
+                {
+                    if (string.Equals(_personas[i]?.characterId, lastId, System.StringComparison.OrdinalIgnoreCase))
+                    {
+                        _selectedIndex = i;
+                        return;
+                    }
+                }
+            }
+            _selectedIndex = 0;
         }
     }
 }
