@@ -25,7 +25,7 @@ namespace Grommel.Stt
 
         public WhisperSttProvider(string whisperExecutable, string modelPath, string language = "")
         {
-            _impl = new WhisperStt(whisperExecutable, modelPath, language);
+            _impl = new WhisperStt(whisperExecutable, modelPath, language, useGpu: false);
         }
 
         public Task<string> TranscribeAsync(AudioClip clip) => _impl.TranscribeAsync(clip);

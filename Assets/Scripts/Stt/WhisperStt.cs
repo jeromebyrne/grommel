@@ -14,15 +14,17 @@ namespace Grommel.Stt
         readonly string _whisperExecutable;
         readonly string _modelPath;
         readonly string _language;
+        readonly bool _useGpu;
 
         /// <param name="whisperExecutable">Path to whisper.cpp binary (e.g., Tools/whisper.cpp/main).</param>
         /// <param name="modelPath">Path to ggml model (e.g., Tools/models/ggml-small.en.bin).</param>
         /// <param name="language">Optional ISO code (e.g., "en"). Leave empty to auto-detect.</param>
-        public WhisperStt(string whisperExecutable, string modelPath, string language = "")
+        public WhisperStt(string whisperExecutable, string modelPath, string language = "", bool useGpu = false)
         {
             _whisperExecutable = whisperExecutable ?? string.Empty;
             _modelPath = modelPath ?? string.Empty;
             _language = language ?? string.Empty;
+            _useGpu = useGpu;
         }
 
         public async Task<string> TranscribeAsync(AudioClip clip)
@@ -55,25 +57,31 @@ namespace Grommel.Stt
         {
             if (string.IsNullOrWhiteSpace(_whisperExecutable) || !File.Exists(_whisperExecutable))
             {
-                Debug.LogError($"Whisper STT: Executable not found at '{_whisperExecutable}'.");
+                UnityEngine.Debug.LogError($"Whisper STT: Executable not found at '{_whisperExecutable}'.");
                 return string.Empty;
             }
             if (string.IsNullOrWhiteSpace(_modelPath) || !File.Exists(_modelPath))
             {
-                Debug.LogError($"Whisper STT: Model not found at '{_modelPath}'.");
+                UnityEngine.Debug.LogError($"Whisper STT: Model not found at '{_modelPath}'.");
                 return string.Empty;
             }
             if (string.IsNullOrWhiteSpace(wavPath) || !File.Exists(wavPath))
             {
-                Debug.LogError($"Whisper STT: WAV path not found: {wavPath}");
+                UnityEngine.Debug.LogError($"Whisper STT: WAV path not found: {wavPath}");
                 return string.Empty;
             }
 
             return await Task.Run(() =>
             {
+                string tempBase = Path.Combine(Path.GetTempPath(), $"whisper_out_{DateTime.UtcNow.Ticks}");
+                string txtPath = tempBase + ".txt";
                 try
                 {
-                    string args = $"-m \"{_modelPath}\" -f \"{wavPath}\" -otxt -of -";
+                    string args = $"-m \"{_modelPath}\" -f \"{wavPath}\" -otxt -of \"{tempBase}\" -np";
+                    if (!_useGpu)
+                    {
+                        args += " -ng";
+                    }
                     if (!string.IsNullOrWhiteSpace(_language))
                     {
                         args += $" -l {_language}";
@@ -86,7 +94,8 @@ namespace Grommel.Stt
                         UseShellExecute = false,
                         RedirectStandardOutput = true,
                         RedirectStandardError = true,
-                        CreateNoWindow = true
+                        CreateNoWindow = true,
+                        WorkingDirectory = Path.GetDirectoryName(_whisperExecutable)
                     };
 
                     using (var proc = Process.Start(psi))
@@ -96,16 +105,31 @@ namespace Grommel.Stt
                         proc.WaitForExit();
                         if (proc.ExitCode != 0)
                         {
-                            Debug.LogError($"Whisper STT failed ({proc.ExitCode}). Stderr: {stderr}");
+                            UnityEngine.Debug.LogError($"Whisper STT failed ({proc.ExitCode}). Stderr: {stderr}");
                             return string.Empty;
                         }
+
+                        if (File.Exists(txtPath))
+                        {
+                            var text = File.ReadAllText(txtPath).Trim();
+                            return text;
+                        }
+
                         return output.Trim();
                     }
                 }
                 catch (Exception ex)
                 {
-                    Debug.LogError($"Whisper STT exception: {ex.Message}");
+                    UnityEngine.Debug.LogError($"Whisper STT exception: {ex.Message}");
                     return string.Empty;
+                }
+                finally
+                {
+                    try
+                    {
+                        if (File.Exists(txtPath)) File.Delete(txtPath);
+                    }
+                    catch { }
                 }
             });
         }
