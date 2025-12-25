@@ -9,14 +9,16 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
+using System;
+using UnityEngine.Events;
+using System.Collections.Generic;
 
 namespace Grommel
 {
     public class NpcDialogueController : MonoBehaviour
     {
-        [SerializeField] TMP_InputField _playerInput;
         [SerializeField] TextMeshProUGUI _npcOutput;
-        [SerializeField] Button _sendButton;
+        [SerializeField] Button _recordButton;
         [SerializeField] AudioSource _npcAudio;
         [SerializeField] float _charsPerSecond = 40f;
         [SerializeField] TtsProviderKind _ttsProviderKind = TtsProviderKind.Piper;
@@ -55,13 +57,16 @@ namespace Grommel
         IAddressablesLoader _addressablesLoader;
         IPromptBuilder _promptBuilder;
         [SerializeField] NpcCharacterView _npcView;
+        [SerializeField] VoiceInputController _voiceInput;
+        bool _recordingFromButton;
 
         void Awake()
         {
-            _playerInput.lineType = TMP_InputField.LineType.MultiLineSubmit; // wrap text, Enter submits
-            _sendButton.onClick.AddListener(OnSendClicked);
-            _playerInput.onSubmit.AddListener(OnSubmitInput);
             EnsureNpcScrollContainer();
+            if (_recordButton != null)
+            {
+                AddHoldToRecord(_recordButton);
+            }
             _ttsProvider = CreateTtsProvider();
             _promptBuilder = CreatePromptBuilder();
             _llmProvider = CreateLlmProvider(_promptBuilder);
@@ -79,10 +84,64 @@ namespace Grommel
             }
         }
 
-        private void OnSubmitInput(string value)
+        void AddHoldToRecord(Button button)
         {
-            OnSendClicked();
+            var trigger = button.GetComponent<EventTrigger>();
+            if (trigger == null)
+            {
+                trigger = button.gameObject.AddComponent<EventTrigger>();
+            }
+            if (trigger.triggers == null)
+            {
+                trigger.triggers = new List<EventTrigger.Entry>();
+            }
+            AddTrigger(trigger, EventTriggerType.PointerDown, _ => StartRecording());
+            AddTrigger(trigger, EventTriggerType.PointerUp, _ => StopRecording());
+            AddTrigger(trigger, EventTriggerType.PointerExit, _ => StopRecording());
         }
+
+        void AddTrigger(EventTrigger trigger, EventTriggerType type, UnityAction<BaseEventData> action)
+        {
+            var entry = new EventTrigger.Entry { eventID = type };
+            entry.callback.AddListener(action);
+            trigger.triggers.Add(entry);
+        }
+
+        void StartRecording()
+        {
+            if (_voiceInput == null || _isBusy || _recordingFromButton)
+            {
+                return;
+            }
+            _voiceInput.StartRecording();
+            _recordingFromButton = true;
+            SetRecordButtonColor(Color.green);
+        }
+
+        void StopRecording()
+        {
+            if (_voiceInput == null || !_recordingFromButton)
+            {
+                return;
+            }
+            _voiceInput.StopAndTranscribe();
+            _recordingFromButton = false;
+            SetRecordButtonColor(Color.white);
+        }
+
+        void SetRecordButtonColor(Color color)
+        {
+            if (_recordButton == null)
+            {
+                return;
+            }
+            var colors = _recordButton.colors;
+            colors.normalColor = color;
+            colors.highlightedColor = color;
+            _recordButton.colors = colors;
+        }
+
+        // Input field no longer accepts manual input; OnSubmitInput unused.
 
         private void Update()
         {
@@ -124,12 +183,6 @@ namespace Grommel
             }
         }
 
-        private void OnSendClicked()
-        {
-            string playerLine = _playerInput.text;
-            _ = ProcessPlayerLineAsync(playerLine, clearInputField: true);
-        }
-
         public void SubmitExternalLine(string text)
         {
             _ = ProcessPlayerLineAsync(text, clearInputField: false);
@@ -148,7 +201,10 @@ namespace Grommel
             }
 
             _isBusy = true;
-            _sendButton.interactable = false;
+            if (_recordButton != null)
+            {
+                _recordButton.interactable = false;
+            }
 
             _npcOutput.text = string.Empty;
             RefreshNpcScrollContentHeight();
@@ -169,8 +225,12 @@ namespace Grommel
             if (_activePersona == null)
             {
                 Debug.LogError("No active persona loaded; cannot generate NPC reply.");
-                _sendButton.interactable = true;
+                if (_recordButton != null)
+                {
+                    _recordButton.interactable = true;
+                }
                 _isBusy = false;
+                _recordingFromButton = false;
                 return;
             }
             string npcReply = await dialogueService.GetNpcReply(_activePersona.characterId, _activePersona.persona,
@@ -181,17 +241,21 @@ namespace Grommel
             _history.Add(_activePersona.displayName + ": " + npcReply);
 
             _currentTargetText = npcReply;
-            if (clearInputField && _playerInput != null)
-            {
-                _playerInput.text = string.Empty;
-            }
 
             if (!string.IsNullOrWhiteSpace(npcReply))
             {
                 _ = GenerateClipAsync(npcReply);
             }
 
-            _sendButton.interactable = true;
+            if (_recordButton != null)
+            {
+                _recordButton.interactable = true;
+                if (_recordingFromButton)
+                {
+                    StopRecording();
+                }
+            }
+            _recordingFromButton = false;
             _isBusy = false;
         }
 
