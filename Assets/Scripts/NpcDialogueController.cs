@@ -75,6 +75,11 @@ namespace Grommel
             {
                 AddHoldToRecord(_recordButton);
             }
+            if (_voiceInput != null)
+            {
+                _voiceInput.OnPartialTranscription += OnPartialTranscription;
+                _voiceInput.OnFinalTranscription += OnFinalTranscription;
+            }
             _ttsProvider = CreateTtsProvider();
             _promptBuilder = CreatePromptBuilder();
             _llmProvider = CreateLlmProvider(_promptBuilder);
@@ -89,6 +94,11 @@ namespace Grommel
             {
                 StopCoroutine(_thinkingCoroutine);
                 _thinkingCoroutine = null;
+            }
+            if (_voiceInput != null)
+            {
+                _voiceInput.OnPartialTranscription -= OnPartialTranscription;
+                _voiceInput.OnFinalTranscription -= OnFinalTranscription;
             }
         }
 
@@ -447,6 +457,24 @@ namespace Grommel
             SetStatus("Speaking...");
             StartCoroutine(WaitForAudioEnd(_npcAudio.clip.length));
             _pendingClip = null;
+        }
+
+        void OnPartialTranscription(string text)
+        {
+            if (!string.IsNullOrWhiteSpace(text))
+            {
+                _npcOutput.text = text;
+            }
+            SetStatus("Transcribing...");
+        }
+
+        void OnFinalTranscription(string text)
+        {
+            SetStatus("Thinking...");
+            if (_recordButton != null)
+            {
+                _recordButton.interactable = false;
+            }
         }
 
         System.Collections.IEnumerator WaitForAudioEnd(float length)
