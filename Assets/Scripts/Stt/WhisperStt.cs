@@ -15,16 +15,20 @@ namespace Grommel.Stt
         readonly string _modelPath;
         readonly string _language;
         readonly bool _useGpu;
+        readonly bool _noTimestamps;
+        readonly int _threads;
 
         /// <param name="whisperExecutable">Path to whisper.cpp binary (e.g., Tools/whisper.cpp/main).</param>
         /// <param name="modelPath">Path to ggml model (e.g., Tools/models/ggml-small.en.bin).</param>
         /// <param name="language">Optional ISO code (e.g., "en"). Leave empty to auto-detect.</param>
-        public WhisperStt(string whisperExecutable, string modelPath, string language = "", bool useGpu = false)
+        public WhisperStt(string whisperExecutable, string modelPath, string language = "", bool useGpu = false, bool noTimestamps = true, int threads = 2)
         {
             _whisperExecutable = whisperExecutable ?? string.Empty;
             _modelPath = modelPath ?? string.Empty;
             _language = language ?? string.Empty;
             _useGpu = useGpu;
+            _noTimestamps = noTimestamps;
+            _threads = threads;
         }
 
         public async Task<string> TranscribeAsync(AudioClip clip)
@@ -34,23 +38,8 @@ namespace Grommel.Stt
                 return string.Empty;
             }
 
-            string tempWav = Path.Combine(Application.temporaryCachePath, $"whisper_{DateTime.UtcNow.Ticks}.wav");
-            try
-            {
-                WriteWav(tempWav, clip);
-                return await TranscribeAsync(tempWav);
-            }
-            finally
-            {
-                try
-                {
-                    if (File.Exists(tempWav))
-                    {
-                        File.Delete(tempWav);
-                    }
-                }
-                catch { }
-            }
+            var pcmBytes = ConvertToPcm16(clip);
+            return await TranscribePcmAsync(pcmBytes);
         }
 
         public async Task<string> TranscribeAsync(string wavPath)
@@ -71,13 +60,42 @@ namespace Grommel.Stt
                 return string.Empty;
             }
 
+            return await RunWhisperAsync($"-m \"{_modelPath}\" -f \"{wavPath}\"");
+        }
+
+        async Task<string> TranscribePcmAsync(byte[] pcmData)
+        {
+            if (string.IsNullOrWhiteSpace(_whisperExecutable) || !File.Exists(_whisperExecutable))
+            {
+                UnityEngine.Debug.LogError($"Whisper STT: Executable not found at '{_whisperExecutable}'.");
+                return string.Empty;
+            }
+            if (string.IsNullOrWhiteSpace(_modelPath) || !File.Exists(_modelPath))
+            {
+                UnityEngine.Debug.LogError($"Whisper STT: Model not found at '{_modelPath}'.");
+                return string.Empty;
+            }
+
+            return await RunWhisperAsync($"-m \"{_modelPath}\" -f -", pcmData);
+        }
+
+        async Task<string> RunWhisperAsync(string baseArgs, byte[] stdinData = null)
+        {
             return await Task.Run(() =>
             {
                 string tempBase = Path.Combine(Path.GetTempPath(), $"whisper_out_{DateTime.UtcNow.Ticks}");
                 string txtPath = tempBase + ".txt";
                 try
                 {
-                    string args = $"-m \"{_modelPath}\" -f \"{wavPath}\" -otxt -of \"{tempBase}\" -np";
+                    string args = $"{baseArgs} -otxt -of \"{tempBase}\" -np";
+                    if (_noTimestamps)
+                    {
+                        args += " -nt";
+                    }
+                    if (_threads > 0)
+                    {
+                        args += $" -t {_threads}";
+                    }
                     if (!_useGpu)
                     {
                         args += " -ng";
@@ -94,12 +112,20 @@ namespace Grommel.Stt
                         UseShellExecute = false,
                         RedirectStandardOutput = true,
                         RedirectStandardError = true,
+                        RedirectStandardInput = stdinData != null,
                         CreateNoWindow = true,
                         WorkingDirectory = Path.GetDirectoryName(_whisperExecutable)
                     };
 
                     using (var proc = Process.Start(psi))
                     {
+                        if (stdinData != null)
+                        {
+                            proc.StandardInput.BaseStream.Write(stdinData, 0, stdinData.Length);
+                            proc.StandardInput.BaseStream.Flush();
+                            proc.StandardInput.Close();
+                        }
+
                         string output = proc.StandardOutput.ReadToEnd();
                         string stderr = proc.StandardError.ReadToEnd();
                         proc.WaitForExit();
@@ -132,6 +158,20 @@ namespace Grommel.Stt
                     catch { }
                 }
             });
+        }
+
+        byte[] ConvertToPcm16(AudioClip clip)
+        {
+            var samples = new float[clip.samples * clip.channels];
+            clip.GetData(samples, 0);
+            var pcm = new byte[samples.Length * 2];
+            for (int i = 0; i < samples.Length; i++)
+            {
+                short val = (short)Mathf.Clamp(samples[i] * 32767f, short.MinValue, short.MaxValue);
+                pcm[i * 2] = (byte)(val & 0xFF);
+                pcm[i * 2 + 1] = (byte)((val >> 8) & 0xFF);
+            }
+            return pcm;
         }
 
         void WriteWav(string path, AudioClip clip)

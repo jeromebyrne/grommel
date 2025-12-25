@@ -63,7 +63,12 @@ namespace Grommel
 
         void Awake()
         {
-            EnsureNpcScrollContainer();
+            // Simple non-scrolling NPC output: truncate older text inside its rect.
+            if (_npcOutput != null)
+            {
+                _npcOutput.enableWordWrapping = true;
+                _npcOutput.overflowMode = TMPro.TextOverflowModes.Truncate;
+            }
             if (_recordButton != null)
             {
                 AddHoldToRecord(_recordButton);
@@ -130,6 +135,10 @@ namespace Grommel
             _voiceInput.StopAndTranscribe();
             _recordingFromButton = false;
             SetRecordButtonColor(Color.white);
+            if (_recordButton != null)
+            {
+                _recordButton.interactable = false; // keep disabled until response cycle completes
+            }
         }
 
         void SetRecordButtonColor(Color color)
@@ -208,6 +217,12 @@ namespace Grommel
 
             if (string.IsNullOrWhiteSpace(playerLine))
             {
+                if (_recordButton != null)
+                {
+                    _recordButton.interactable = true;
+                }
+                SetStatus("Ready");
+                _recordingFromButton = false;
                 return;
             }
 
@@ -374,103 +389,22 @@ namespace Grommel
                 return;
             }
 
-            var scrollGo = new GameObject("NpcScrollView", typeof(RectTransform), typeof(ScrollRect));
-            var scrollRt = scrollGo.GetComponent<RectTransform>();
-            scrollRt.SetParent(parentRt, false);
-            scrollRt.anchorMin = textRt.anchorMin;
-            scrollRt.anchorMax = textRt.anchorMax;
-            scrollRt.pivot = textRt.pivot;
-            scrollRt.sizeDelta = textRt.sizeDelta;
-            scrollRt.anchoredPosition = textRt.anchoredPosition;
-            scrollRt.localScale = textRt.localScale;
-            scrollRt.SetSiblingIndex(textRt.GetSiblingIndex());
-
-            var viewportGo = new GameObject("Viewport", typeof(RectTransform), typeof(RectMask2D), typeof(Image),
-                typeof(EventTrigger));
-            var viewportRt = viewportGo.GetComponent<RectTransform>();
-            viewportRt.SetParent(scrollRt, false);
-            viewportRt.anchorMin = Vector2.zero;
-            viewportRt.anchorMax = Vector2.one;
-            viewportRt.offsetMin = Vector2.zero;
-            viewportRt.offsetMax = Vector2.zero;
-            var viewportImage = viewportGo.GetComponent<Image>();
-            viewportImage.color = new Color(0f, 0f, 0f, 0.1f); // needed for raycasts
-            var trigger = viewportGo.GetComponent<EventTrigger>();
-            trigger.triggers = new List<EventTrigger.Entry>();
-
-            void AddTrigger(EventTriggerType type)
-            {
-                var entry = new EventTrigger.Entry { eventID = type };
-                entry.callback.AddListener(_ => _npcAutoScroll = false);
-                trigger.triggers.Add(entry);
-            }
-
-            AddTrigger(EventTriggerType.PointerDown);
-            AddTrigger(EventTriggerType.BeginDrag);
-
-            var contentGo = new GameObject("Content", typeof(RectTransform), typeof(ContentSizeFitter));
-            var contentRt = contentGo.GetComponent<RectTransform>();
-            contentRt.SetParent(viewportRt, false);
-            contentRt.anchorMin = new Vector2(0f, 1f);
-            contentRt.anchorMax = new Vector2(1f, 1f);
-            contentRt.pivot = new Vector2(0.5f, 1f);
-            contentRt.offsetMin = Vector2.zero;
-            contentRt.offsetMax = Vector2.zero;
-
-            var contentFitter = contentGo.GetComponent<ContentSizeFitter>();
-            contentFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            contentFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
-
-            var textFitter = textRt.GetComponent<ContentSizeFitter>() ??
-                             textRt.gameObject.AddComponent<ContentSizeFitter>();
-            textFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            textFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
-            _npcOutput.raycastTarget = false; // let the ScrollRect capture drag events
-
-            textRt.SetParent(contentRt, false);
-            textRt.anchorMin = new Vector2(0f, 1f);
-            textRt.anchorMax = new Vector2(1f, 1f);
-            textRt.pivot = new Vector2(0.5f, 1f);
-            textRt.anchoredPosition = Vector2.zero;
-            textRt.offsetMin = Vector2.zero;
-            textRt.offsetMax = Vector2.zero;
-
-            var scrollRect = scrollGo.GetComponent<ScrollRect>();
-            scrollRect.content = contentRt;
-            scrollRect.viewport = viewportRt;
-            scrollRect.horizontal = false;
-            scrollRect.vertical = true;
-            scrollRect.movementType = ScrollRect.MovementType.Clamped;
-            scrollRect.inertia = true;
-            scrollRect.scrollSensitivity = 40f;
-            scrollRect.onValueChanged.AddListener(OnNpcScrollChanged);
-
-            _npcScrollRect = scrollRect;
-            _npcContentRoot = contentRt;
-            _npcScrollInitialized = true;
-            RefreshNpcScrollContentHeight(true);
-            _npcScrollRect.verticalNormalizedPosition = 0f; // bottom
+            // Scroller disabled: keep text in-place, truncate older content within rect.
+            _npcScrollInitialized = false;
+            _npcContentRoot = null;
+            _npcScrollRect = null;
+            textRt.SetParent(parentRt, false);
+            textRt.anchorMin = textRt.anchorMin;
+            textRt.anchorMax = textRt.anchorMax;
+            textRt.pivot = textRt.pivot;
         }
 
         private void RefreshNpcScrollContentHeight(bool forceAutoScroll = false)
         {
-            if (!_npcScrollInitialized || _npcOutput == null || _npcContentRoot == null)
+            // No scroller; nothing to resize.
+            if (_npcOutput == null)
             {
                 return;
-            }
-
-            LayoutRebuilder.ForceRebuildLayoutImmediate(_npcOutput.rectTransform);
-            float preferredHeight = _npcOutput.preferredHeight;
-            if (!Mathf.Approximately(preferredHeight, _lastNpcContentHeight))
-            {
-                var size = _npcContentRoot.sizeDelta;
-                _npcContentRoot.sizeDelta = new Vector2(size.x, preferredHeight);
-                _lastNpcContentHeight = preferredHeight;
-            }
-
-            if (_npcScrollRect != null && (_npcAutoScroll || forceAutoScroll))
-            {
-                _npcScrollRect.verticalNormalizedPosition = 0f;
             }
         }
 
