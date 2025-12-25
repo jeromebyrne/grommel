@@ -29,6 +29,8 @@ namespace Grommel
             _sttProvider = CreateSttProvider();
         }
 
+        public int MaxRecordSeconds => _maxRecordSeconds;
+
         ISttProvider CreateSttProvider()
         {
             switch (_sttProviderKind)

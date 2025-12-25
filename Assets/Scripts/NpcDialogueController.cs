@@ -60,6 +60,8 @@ namespace Grommel
         [SerializeField] NpcCharacterView _npcView;
         [SerializeField] VoiceInputController _voiceInput;
         bool _recordingFromButton;
+        Coroutine _recordTimeoutRoutine;
+        float _recordCountdown;
 
         void Awake()
         {
@@ -119,10 +121,12 @@ namespace Grommel
             {
                 return;
             }
-            SetStatus("Recording...");
+            _recordCountdown = _voiceInput != null ? _voiceInput.MaxRecordSeconds : 0f;
+            SetStatus($"Recording ({Mathf.CeilToInt(_recordCountdown)}s)");
             _voiceInput.StartRecording();
             _recordingFromButton = true;
             SetRecordButtonColor(Color.green);
+            StartRecordTimeout();
         }
 
         void StopRecording()
@@ -139,6 +143,7 @@ namespace Grommel
             {
                 _recordButton.interactable = false; // keep disabled until response cycle completes
             }
+            StopRecordTimeout();
         }
 
         void SetRecordButtonColor(Color color)
@@ -200,6 +205,14 @@ namespace Grommel
             {
                 _pendingPlayClip = false;
                 PlayPendingClip();
+            }
+
+            // Update recording countdown if active
+            if (_recordingFromButton && _recordCountdown > 0f)
+            {
+                _recordCountdown -= Time.deltaTime;
+                if (_recordCountdown < 0f) _recordCountdown = 0f;
+                SetStatus($"Recording ({Mathf.CeilToInt(_recordCountdown)}s)");
             }
         }
 
@@ -443,6 +456,33 @@ namespace Grommel
             if (!_isBusy && _recordButton != null)
             {
                 _recordButton.interactable = true;
+            }
+        }
+
+        System.Collections.IEnumerator RecordTimeout(int seconds)
+        {
+            yield return new WaitForSeconds(seconds);
+            if (_recordingFromButton)
+            {
+                StopRecording();
+            }
+        }
+
+        void StartRecordTimeout()
+        {
+            StopRecordTimeout();
+            if (_voiceInput != null && _voiceInput.MaxRecordSeconds > 0)
+            {
+                _recordTimeoutRoutine = StartCoroutine(RecordTimeout(_voiceInput.MaxRecordSeconds));
+            }
+        }
+
+        void StopRecordTimeout()
+        {
+            if (_recordTimeoutRoutine != null)
+            {
+                StopCoroutine(_recordTimeoutRoutine);
+                _recordTimeoutRoutine = null;
             }
         }
 
