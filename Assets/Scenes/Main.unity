@@ -685,6 +685,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Grommel.NpcCharacterView
   _portrait: {fileID: 622825585}
+  _fadeDuration: 0.3
 --- !u!1 &1101277452
 GameObject:
   m_ObjectHideFlags: 0
@@ -822,6 +823,56 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1101277452}
   m_CullTransparentMesh: 1
+--- !u!1 &1113617403
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1113617405}
+  - component: {fileID: 1113617404}
+  m_Layer: 0
+  m_Name: VoiceInputController
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1113617404
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1113617403}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d82068afae9a44236addb366eb34b3a2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Grommel.VoiceInputController
+  _dialogue: {fileID: 1166675082}
+  _sttProviderKind: 0
+  _macSttCommand: 
+  _macSttArgs: '{0}'
+  _maxRecordSeconds: 15
+  _sampleRate: 16000
+--- !u!4 &1113617405
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1113617403}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -306.03094, y: 1503.339, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1166675081
 GameObject:
   m_ObjectHideFlags: 0
@@ -859,7 +910,7 @@ MonoBehaviour:
   _ttsProviderKind: 0
   _llmProviderKind: 0
   _thinkingBaseText: Thinking
-  _personaKey: eliara
+  _personaKey: fenwick
   _npcView: {fileID: 622825587}
 --- !u!4 &1166675083
 Transform:
@@ -1717,3 +1768,4 @@ SceneRoots:
   - {fileID: 101434700}
   - {fileID: 1166675083}
   - {fileID: 1736422326}
+  - {fileID: 1113617405}

@@ -1,10 +1,6 @@
 using System.Threading.Tasks;
 using UnityEngine;
 
-using System.Threading.Tasks;
-using UnityEngine;
-using Grommel.Tts;
-
 namespace Grommel.Tts
 {
     /// <summary>

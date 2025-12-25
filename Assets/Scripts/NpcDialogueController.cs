@@ -124,14 +124,24 @@ namespace Grommel
             }
         }
 
-        private async void OnSendClicked()
+        private void OnSendClicked()
+        {
+            string playerLine = _playerInput.text;
+            _ = ProcessPlayerLineAsync(playerLine, clearInputField: true);
+        }
+
+        public void SubmitExternalLine(string text)
+        {
+            _ = ProcessPlayerLineAsync(text, clearInputField: false);
+        }
+
+        async Task ProcessPlayerLineAsync(string playerLine, bool clearInputField)
         {
             if (_isBusy)
             {
                 return;
             }
 
-            string playerLine = _playerInput.text;
             if (string.IsNullOrWhiteSpace(playerLine))
             {
                 return;
@@ -171,7 +181,10 @@ namespace Grommel
             _history.Add(_activePersona.displayName + ": " + npcReply);
 
             _currentTargetText = npcReply;
-            _playerInput.text = string.Empty;
+            if (clearInputField && _playerInput != null)
+            {
+                _playerInput.text = string.Empty;
+            }
 
             if (!string.IsNullOrWhiteSpace(npcReply))
             {
